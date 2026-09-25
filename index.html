@@ -220,8 +220,8 @@
   .co-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px; padding: 10px 0; border-top: 1px solid var(--border); }
   .co-name { display: flex; align-items: center; gap: 7px; font-weight: 600; }
   .co-detail { margin-top: 3px; font-size: .8em; color: var(--muted); }
-  .co-missed label { margin-bottom: 2px; font-size: .75em; }
-  .co-missed .stepper { width: 128px; }
+  .co-done label { margin-bottom: 2px; font-size: .75em; }
+  .co-done .stepper { width: 128px; }
   .co-result { grid-column: 1 / -1; font-size: .82em; color: var(--muted); }
   .co-result strong { color: var(--text); }
 
@@ -472,7 +472,7 @@
 <div class="overlay" id="closeOutOverlay">
   <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="closeOutTitle">
     <h3 id="closeOutTitle">Close out the week</h3>
-    <p class="modal-hint">Momo assumes you did the goal work you planned. If some of it didn't happen, enter those hours under &ldquo;Didn't do&rdquo; and they go back on the goal. Everything else from the week is simply let go &mdash; there's nothing else to account for.</p>
+    <p class="modal-hint">Hours done toward each goal. Lower any that fell short.</p>
     <div id="closeOutRows"></div>
     <div class="modal-actions">
       <button id="closeOutConfirmBtn">Close out week</button>
@@ -551,7 +551,7 @@
   let undoStack = [];        // earlier versions of data as JSON, newest last
   let lastSavedJSON = "";    // data as of the last save, as JSON…
   let lastSaved = null;      // …and parsed, to tell what the next change touched
-  let closing = null;        // the close-out on screen: { key, rows: [{ goalId, name, color, hours, days, missed }] }
+  let closing = null;        // the close-out on screen: { key, rows: [{ goalId, name, color, hours, days, done }] }
   let closeOutLater = false; // "Later" was picked: the banner stands in for the close-out until the next week
   let knownToday = "";       // today as of the last check, to notice midnight and new weeks
   let editing = null;        // the card editor's state
@@ -578,6 +578,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.242", date: "2026-09-25", changes: [
+      "Close-out starts each goal at its planned hours; lower any that fell short."
+    ] },
     { version: "1.232", date: "2026-09-25", changes: [
       "Weeks can copy the previous week's plan, and any week can be saved as the new baseline."
     ] },
@@ -1810,7 +1813,7 @@
   // ==========================================================================
   // Time can't be saved, so nothing rolls over — except goal hours. Once a week
   // is over, its goal cards are reviewed by exception: Momo assumes the planned
-  // work happened, you enter what didn't, and the rest of the week is let go.
+  // work happened, you lower any that fell short, and the rest of the week is let go.
   const pendingCloseOuts = () => Object.keys(data.weeks).filter(k => k < thisWeekKey() && !data.weeks[k].closed).sort();
 
   // The goal work scheduled in a week: [{ goalId, name, color, hours, days: [[day, hours]] }].
@@ -1861,18 +1864,18 @@
   function openCloseOut(key) {
     const week = data.weeks[key];
     if (!week || week.closed) return;
-    closing = { key, rows: goalWork(week).map(w => ({ ...w, missed: 0 })) };
+    closing = { key, rows: goalWork(week).map(w => ({ ...w, done: w.hours })) };
     $("closeOutTitle").textContent = key === thisWeekKey() ? `Close out this week (${fmtWeek(key)})` : `Close out ${fmtWeek(key)}`;
     $("closeOutRows").innerHTML = closing.rows.map((r, i) => `<div class="co-row" style="--c:var(--c${r.color})">
       <div>
         <div class="co-name"><span class="goal-dot"></span>${esc(r.name)}</div>
         <div class="co-detail">Planned ${fmtH(r.hours)} · ${r.days.map(([d, h]) => `${DAY_NAMES[d]} ${fmtH(h)}`).join(" · ")}</div>
       </div>
-      <div class="co-missed">
-        <label for="coMissed${i}">Didn't do</label>
+      <div class="co-done">
+        <label for="coDone${i}">Done</label>
         <div class="stepper">
           <button type="button" class="step-btn" data-step="-1" aria-label="Less">&minus;</button>
-          <input type="number" id="coMissed${i}" data-row="${i}" value="0" min="0" max="${r.hours}" step="0.25">
+          <input type="number" id="coDone${i}" data-row="${i}" value="${fmtNum(r.hours)}" min="0" max="${r.hours}" step="0.25">
           <button type="button" class="step-btn" data-step="1" aria-label="More">+</button>
         </div>
       </div>
@@ -1888,7 +1891,7 @@
     const r = closing.rows[i], g = goalById(r.goalId);
     if (!g) return;
     const before = Math.max(0, g.target - (goalDone(g) - (g.log[closing.key] || 0)));
-    const after = Math.max(0, before - (r.hours - r.missed));
+    const after = Math.max(0, before - r.done);
     $(`coResult${i}`).innerHTML = after === 0 && before > 0
       ? `${fmtH(before)} to go → <strong>goal reached 🎉</strong>`
       : `${fmtH(before)} → <strong>${fmtH(after)}</strong> to go`;
@@ -1898,13 +1901,13 @@
     const i = +e.target.dataset.row, r = closing && closing.rows[i];
     if (!r) return;
     const v = parseFloat(e.target.value);
-    r.missed = isNum(v) ? Math.min(r.hours, Math.max(0, snap(v))) : 0;
+    r.done = isNum(v) ? Math.min(r.hours, Math.max(0, snap(v))) : 0;
     updateCloseOutResult(i);
   }
 
   function onCloseOutChange(e) {
     const r = closing && closing.rows[+e.target.dataset.row];
-    if (r) e.target.value = fmtNum(r.missed);
+    if (r) e.target.value = fmtNum(r.done);
   }
 
   function confirmCloseOut() {
@@ -1917,7 +1920,7 @@
       rows.forEach(r => {
         const g = goalById(r.goalId);
         if (!g) return;
-        const was = isReached(g), worked = snap(Math.max(0, r.hours - r.missed));
+        const was = isReached(g), worked = snap(r.done);
         if (worked > 0) g.log[key] = worked;
         else delete g.log[key];
         if (!was && isReached(g)) reached.push(g.name);
