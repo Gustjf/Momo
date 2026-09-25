@@ -203,6 +203,16 @@
   .day-pill { min-width: 44px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--btn-bg); color: var(--text); font-size: .82em; }
   .day-pill:hover:not(.active) { background: var(--border); }
   .day-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .field-head { display: flex; align-items: center; justify-content: space-between; gap: 4px 10px; flex-wrap: wrap; margin-bottom: 5px; }
+  .field-head label { margin: 0; }
+  .presets { display: flex; gap: 5px; margin-left: auto; }
+  .date-parts { display: flex; gap: 8px; }
+  .date-parts > * { min-width: 0; }
+  .date-parts select { flex: 2 1 0; }
+  .date-parts input { flex: 1 1 0; }
+  .date-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; }
+  .date-note { font-size: .8em; color: var(--muted); }
+  .date-note.bad { color: var(--bad); }
   .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
   .swatch { width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 2px solid var(--panel); background: var(--c); box-shadow: 0 0 0 1px var(--border); transition: transform .1s; }
   .swatch:hover { background: var(--c); transform: scale(1.12); }
@@ -390,7 +400,13 @@
       </div>
     </div>
     <div class="field">
-      <label id="cardDaysLabel">Days</label>
+      <div class="field-head">
+        <label>Days &mdash; pick several to add it to each</label>
+        <span class="presets">
+          <button type="button" class="secondary small" id="cardDailyBtn">Daily</button>
+          <button type="button" class="secondary small" id="cardWeekdaysBtn">Weekdays</button>
+        </span>
+      </div>
       <div class="day-pills" id="cardDays"></div>
     </div>
     <div class="field" id="cardColorField">
@@ -417,16 +433,24 @@
     <div class="field-row">
       <div class="field">
         <label for="goalTarget">Total hours</label>
-        <input type="number" id="goalTarget" min="1" step="1" placeholder="e.g. 500">
+        <input type="number" id="goalTarget" min="0.25" max="100000" step="0.25" placeholder="e.g. 500">
       </div>
       <div class="field">
         <label for="goalDone">Done so far</label>
-        <input type="number" id="goalDone" min="0" step="0.25" placeholder="0">
+        <input type="number" id="goalDone" min="0" max="100000" step="0.25" placeholder="0">
       </div>
     </div>
     <div class="field">
-      <label for="goalDue">Finish by (optional)</label>
-      <input type="date" id="goalDue">
+      <label for="goalDueMonth">Finish by (optional)</label>
+      <div class="date-parts">
+        <select id="goalDueMonth" aria-label="Month"></select>
+        <input type="number" id="goalDueDay" min="1" max="31" step="1" inputmode="numeric" placeholder="Day" aria-label="Day">
+        <input type="number" id="goalDueYear" min="2000" max="2999" step="1" inputmode="numeric" placeholder="Year" aria-label="Year">
+      </div>
+      <div class="date-foot" id="goalDueFoot">
+        <span class="date-note" id="goalDueNote"></span>
+        <button type="button" class="secondary small" id="goalDueClearBtn">Clear</button>
+      </div>
     </div>
     <div class="field">
       <label>Colour</label>
@@ -458,7 +482,7 @@
     <button class="modal-close" id="bugReportClose" aria-label="Close">&times;</button>
     <h3 id="bugReportTitle">Report a Bug</h3>
     <p class="modal-hint">Describe what happened and what you expected, then Submit. That saves the report locally (with environment, app state, and recent console activity &mdash; no card or goal names) and copies it to your clipboard. Saved reports are managed from Developer Mode.</p>
-    <textarea id="bugReportText" rows="5" placeholder="What went wrong? What did you expect to happen?"></textarea>
+    <textarea id="bugReportText" rows="5" maxlength="4000" placeholder="What went wrong? What did you expect to happen?"></textarea>
     <div class="modal-actions"><button id="bugReportSubmitBtn">Submit Report</button></div>
     <div class="modal-status" id="bugReportStatus"></div>
   </div>
@@ -479,15 +503,18 @@
   };
   const DAY_HOURS = 24;
   const DAYS = [0, 1, 2, 3, 4, 5, 6]; // Monday first
+  const WEEKDAYS = [0, 1, 2, 3, 4];
   const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const DAY_LONG = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const STEP = 0.25;        // time moves in 15-minute steps
   const BUTTON_STEP = 0.5;  // what the − / + buttons move by
   const MAX_TITLE = 40;
+  const MAX_GOAL_HOURS = 100000;
+  const YEAR_MIN = 2000, YEAR_MAX = 2999; // finish-by years
   const PALETTE = 8;        // card colours --c0…--c7
   const FREE_TIME = "Free time";
   const FREE_TIME_COLOR = 7;
-  const GOAL_COLORS = [0, 2, 5, 3, 1, 6, 4]; // the order new goals take colours in
+  const COLOR_ORDER = [0, 2, 5, 3, 1, 6, 4]; // the order new goals and cards take colours in (slate stays Free time's)
   const UNDO_MAX = 40;
   const TOAST_MS = 6000;
   const BUG_REPORTS_MAX = 20;
@@ -547,6 +574,14 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.101", date: "2026-09-25", changes: [
+      "Editing a card can now add it to more days too, and the day picker has Daily and Weekdays buttons."
+    ] },
+    { version: "1.001", date: "2026-09-25", changes: [
+      "New cards keep their starting colour while you type — one the board isn't using yet.",
+      "Goal finish-by dates are typed as month, day and year; a missing day becomes today's, and one the month doesn't have becomes its nearest end.",
+      "Hours and dates typed outside their range snap to the nearest allowed value, and names lose stray spaces."
+    ] },
     { version: "1.000", date: "2026-09-25", changes: [
       "Initial release: a YNAB-style weekly time budget — 168 hours to give a job, seven 24-hour day columns, and drag-and-drop cards sized by duration.",
       "A baseline week that loads in one click, long-term goals with optional finish-by dates, and a weekly close-out that logs goal hours.",
@@ -588,6 +623,8 @@
   const clampHours = h => Math.min(DAY_HOURS, Math.max(STEP, snap(h)));
   const fmtNum = n => String(+n.toFixed(2));
   const fmtH = h => (h > 0 && h < 1 ? `${Math.round(h * 60)}m` : `${fmtNum(h)}h`);
+  // Titles and names: runs of spaces become one, and a long one is cut without splitting an emoji.
+  const cleanText = s => [...String(s).replace(/\s+/g, " ").trim()].slice(0, MAX_TITLE).join("").trim();
 
   // Dates are "YYYY-MM-DD" calendar days. Date math runs in UTC so timezones and
   // daylight saving can't shift a day; only "today" reads the local clock.
@@ -597,6 +634,9 @@
   const isDate = d => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) && msDate(dateMs(d)) === d;
   const daysBetween = (a, b) => Math.round((dateMs(b) - dateMs(a)) / DAY_MS);
   const addDays = (d, n) => msDate(dateMs(d) + n * DAY_MS);
+  const pad2 = n => String(n).padStart(2, "0");
+  const daysInMonth = (y, m) => new Date(Date.UTC(y, m, 0)).getUTCDate(); // m is 1–12
+  const isDueDate = d => isDate(d) && d >= `${YEAR_MIN}-01-01` && d <= `${YEAR_MAX}-12-31`;
   // Today, moved by any developer time travel.
   const todayStr = () => { const n = new Date(); return addDays(msDate(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate())), dayOffset); };
   const fmtDate = (d, opts = { year: "numeric", month: "short", day: "numeric" }) =>
@@ -608,6 +648,8 @@
   const isWeekKey = k => isDate(k) && dayIndex(k) === 0;
   const thisWeekKey = () => weekKeyOf(todayStr());
   const nextWeekKey = () => addDays(thisWeekKey(), 7);
+  // The first day a board counts: today on this week (earlier hours are already spent), else Monday.
+  const firstDay = key => (key === thisWeekKey() ? dayIndex(todayStr()) : 0);
   // "Sep 28 – Oct 4", or "Sep 21 – 27" within one month.
   function fmtWeek(key) {
     const end = addDays(key, 6);
@@ -655,7 +697,7 @@
   // cover another day's overbooking, so both are counted per day. This week
   // only counts today onward — earlier hours are already spent.
   function budgetOf(list, key) {
-    const first = key === thisWeekKey() ? dayIndex(todayStr()) : 0;
+    const first = firstDay(key);
     const days = DAYS.filter(d => d >= first);
     const totals = DAYS.map(d => dayTotal(list, d));
     return {
@@ -677,7 +719,17 @@
     return Math.ceil(left / Math.max(1, weeksLeft(g, key)) / STEP) * STEP;
   }
 
-  // A new card's colour: the one already used for that title, else one from the title.
+  // A new card's colour, picked once when its editor opens (typing a title doesn't
+  // change it): the first colour not on the board or a goal yet, else the least used.
+  function newCardColor(list) {
+    const uses = new Map(COLOR_ORDER.map(c => [c, 0]));
+    const count = c => { if (uses.has(c)) uses.set(c, uses.get(c) + 1); };
+    list.cards.forEach(c => { const g = goalById(c.goalId); count(g ? g.color : c.color); });
+    liveGoals().forEach(g => count(g.color));
+    return COLOR_ORDER.reduce((best, c) => (uses.get(c) < uses.get(best) ? c : best));
+  }
+
+  // The colour a title already has on a board, else one from the title (Free time's is slate).
   function colorFor(title) {
     const t = title.trim().toLowerCase();
     for (const list of [data.baseline, ...Object.values(data.weeks)]) {
@@ -818,7 +870,7 @@
    */
   function cleanCard(c, allowParked) {
     if (!isObj(c)) return null;
-    const title = typeof c.title === "string" ? c.title.trim().slice(0, MAX_TITLE) : "";
+    const title = typeof c.title === "string" ? cleanText(c.title) : "";
     if (!title || !isPos(c.hours)) return null;
     const onDay = Number.isInteger(c.day) && c.day >= 0 && c.day <= 6;
     if (!onDay && !allowParked) return null;
@@ -843,16 +895,19 @@
   const cleanU = u => (isPos(u) ? u : 0);
   function cleanGoal(g) {
     if (!isObj(g) || typeof g.id !== "string" || !g.id) return null;
-    const name = typeof g.name === "string" ? g.name.trim().slice(0, MAX_TITLE) : "";
+    const name = typeof g.name === "string" ? cleanText(g.name) : "";
     if (!name || !isPos(g.target)) return null;
-    const log = {};
-    if (isObj(g.log)) Object.keys(g.log).forEach(k => { if (isWeekKey(k) && isPos(g.log[k])) log[k] = snap(g.log[k]); });
+    const log = {}; // a week can't hold more than its 168 hours
+    if (isObj(g.log)) Object.keys(g.log).forEach(k => {
+      const h = isPos(g.log[k]) ? Math.min(7 * DAY_HOURS, snap(g.log[k])) : 0;
+      if (isWeekKey(k) && h > 0) log[k] = h;
+    });
     return {
       id: g.id.slice(0, 40),
       name,
-      target: Math.max(STEP, snap(g.target)),
-      start: isNum(g.start) ? snap(g.start) : 0,
-      due: isDate(g.due) ? g.due : "",
+      target: Math.min(MAX_GOAL_HOURS, Math.max(STEP, snap(g.target))),
+      start: isNum(g.start) ? Math.min(MAX_GOAL_HOURS, Math.max(-MAX_GOAL_HOURS, snap(g.start))) : 0,
+      due: isDueDate(g.due) ? g.due : "",
       color: Number.isInteger(g.color) && g.color >= 0 && g.color < PALETTE ? g.color : 0,
       log,
       deleted: g.deleted === true,
@@ -1358,14 +1413,14 @@
   }
 
   // Opens the card editor for a card, or for a new card on a day (null = parked).
-  // A new card can go on several days at once; an existing one moves to one day.
+  // Either one can be put on several days at once.
   function openCardEditor(id, { day = 0 } = {}) {
     if (isLocked()) return;
     const key = shownKey(), list = readList(key);
     const card = id ? list.cards.find(c => c.id === id) : null;
     if (id && !card) return;
     const free = day === null ? 0 : DAY_HOURS - dayTotal(list, day);
-    editing = { key, id: card ? card.id : null, multi: !card, days: new Set([card ? card.day : day]), color: card ? card.color : 0, colorPicked: !!card, lastGoalId: card ? card.goalId : null };
+    editing = { key, id: card ? card.id : null, days: new Set([card ? card.day : day]), color: card ? card.color : newCardColor(list), lastGoalId: card ? card.goalId : null };
     $("cardModalTitle").textContent = card ? "Edit card" : "New card";
     $("cardTitle").value = card ? card.title : "";
     $("cardHours").value = fmtNum(card ? card.hours : free > 0 && free < 1 ? free : 1);
@@ -1374,7 +1429,9 @@
     $("cardGoal").value = card && goals.some(g => g.id === card.goalId) ? card.goalId : "";
     $("cardGoalField").hidden = !goals.length;
     $("cardColorField").hidden = !!$("cardGoal").value;
-    $("cardDaysLabel").textContent = card ? "Day" : "Days — pick several to add it to each";
+    const noWeekdays = !presetDays(WEEKDAYS).length; // this week, on a weekend
+    $("cardWeekdaysBtn").disabled = noWeekdays;
+    $("cardWeekdaysBtn").title = noWeekdays ? "No weekdays left this week" : "";
     $("cardDeleteBtn").hidden = !card;
     $("titleSuggestions").innerHTML = titleSuggestions().map(t => `<option value="${esc(t)}"></option>`).join("");
     renderDayPills();
@@ -1394,9 +1451,7 @@
     const btn = e.target.closest(".day-pill");
     if (!btn || !editing) return;
     const d = btn.dataset.day === "" ? null : +btn.dataset.day;
-    if (!editing.multi) {
-      editing.days = new Set([d]);
-    } else if (editing.days.has(d)) {
+    if (editing.days.has(d)) {
       if (editing.days.size > 1) editing.days.delete(d); // always at least one
     } else if (d === null) {
       editing.days = new Set([null]); // parked goes on its own
@@ -1407,18 +1462,21 @@
     renderDayPills();
   }
 
+  // Daily and Weekdays pick those days; on this week only from today on, and
+  // days already gone keep what they had, so goal work isn't added to the past.
+  const presetDays = days => days.filter(d => d >= firstDay(editing.key));
+  function applyPreset(days) {
+    if (!editing) return;
+    const first = firstDay(editing.key);
+    const picked = [...editing.days].filter(d => d !== null && d < first).concat(presetDays(days));
+    if (!picked.length) return;
+    editing.days = new Set(picked);
+    renderDayPills();
+  }
+
   function renderSwatches(id, active) {
     $(id).innerHTML = Array.from({ length: PALETTE }, (_, i) =>
       `<button type="button" class="swatch${i === active ? " active" : ""}" data-color="${i}" style="--c:var(--c${i})" aria-label="Colour ${i + 1}"></button>`).join("");
-  }
-
-  // Until a colour is picked, a new card takes the one its title already has.
-  function onCardTitleInput() {
-    if (!editing || editing.colorPicked) return;
-    const t = $("cardTitle").value.trim();
-    if (!t) return;
-    editing.color = colorFor(t);
-    renderSwatches("cardColors", editing.color);
   }
 
   // Picking a goal names the card after it (unless it has a name of its own).
@@ -1430,21 +1488,41 @@
     $("cardColorField").hidden = !!g;
   }
 
-  // Returns null for an empty field and NaN for one the browser couldn't parse.
+  // Returns null for an empty field and NaN for one that isn't a usable number.
   function readNumber(id) {
     const el = $(id);
     if (el.validity.badInput) return NaN;
-    return el.value === "" ? null : parseFloat(el.value);
+    if (el.value === "") return null;
+    const v = parseFloat(el.value);
+    return isFinite(v) ? v : NaN;
+  }
+
+  // Hours fields go on the 15-minute grid within their range, so a number past
+  // either end becomes that end. null when empty; NaN when it isn't a number,
+  // or isn't above zero where it has to be.
+  const HOUR_RANGES = { cardHours: [STEP, DAY_HOURS], goalTarget: [STEP, MAX_GOAL_HOURS], goalDone: [0, MAX_GOAL_HOURS] };
+  function readHours(id) {
+    const v = readNumber(id), [min, max] = HOUR_RANGES[id];
+    if (v === null || Number.isNaN(v)) return v;
+    if (min > 0 && v <= 0) return NaN;
+    return Math.min(max, Math.max(min, snap(v)));
+  }
+  // Leaving an hours field shows the value it will be saved as.
+  function tidyHours(e) {
+    const v = readHours(e.target.id);
+    if (isNum(v)) e.target.value = fmtNum(v);
   }
 
   function saveCard() {
     if (!editing) return;
-    const title = $("cardTitle").value.trim().slice(0, MAX_TITLE);
-    const rawHours = readNumber("cardHours");
+    const title = cleanText($("cardTitle").value);
+    const hours = readHours("cardHours");
     const goalId = goalById($("cardGoal").value) ? $("cardGoal").value : null;
     if (!title) { $("cardTitle").focus(); return alert("Give the card a name."); }
-    if (!isPos(rawHours)) { $("cardHours").focus(); return alert("Enter how many hours, e.g. 1.5 (in 15-minute steps)."); }
-    const hours = clampHours(rawHours), list = listFor(editing.key), merged = [];
+    if (!isNum(hours)) { $("cardHours").focus(); return alert("Enter how many hours, e.g. 1.5 (in 15-minute steps)."); }
+    const list = listFor(editing.key), days = [...editing.days].sort((a, b) => a - b);
+    const newCard = day => ({ id: newId(), title, hours, day, goalId, color: editing.color, base: false });
+    const merged = [], added = [], skipped = [];
     if (editing.id) {
       const card = list.cards.find(c => c.id === editing.id);
       if (!card) {
@@ -1453,13 +1531,22 @@
         return toast("That card was changed on another device, so nothing was saved.", false);
       }
       Object.assign(card, { title, hours, goalId, color: editing.color });
-      const day = [...editing.days][0];
-      const into = day !== card.day ? moveCard(list, card.id, day, null) : settle(list, card);
+      // The card stays on its day if that's still picked, else moves to the first
+      // picked day that doesn't have a matching card. Each other picked day gets
+      // a copy — unless it already has a matching card, which is left as it is.
+      const has = d => d !== null && list.cards.some(c => c !== card && c.day === d && sameKind(c, card));
+      const open = days.filter(d => !has(d));
+      const home = editing.days.has(card.day) ? card.day : open.length ? open[0] : days[0];
+      const into = home !== card.day ? moveCard(list, card.id, home, null) : settle(list, card);
       if (into) merged.push(into);
+      days.filter(d => d !== home).forEach(d => {
+        if (has(d)) return skipped.push(d);
+        insertCard(list, newCard(d), null);
+        added.push(d);
+      });
     } else {
-      [...editing.days].sort((a, b) => a - b).forEach(day => {
-        const card = { id: newId(), title, hours, day, goalId, color: editing.color, base: false };
-        const into = mergeTarget(list, card, day);
+      days.forEach(day => {
+        const card = newCard(day), into = mergeTarget(list, card, day);
         if (into) {
           into.hours += hours;
           merged.push(into);
@@ -1469,9 +1556,15 @@
       });
     }
     dismissOverlay("cardOverlay");
-    save();
+    const changed = save();
     renderAll();
-    if (merged.length) toast(merged.length === 1 ? `Merged into ${merged[0].title} · ${fmtH(merged[0].hours)}` : `Merged into ${merged.length} matching cards`, true);
+    const names = ds => ds.map(d => DAY_NAMES[d]).join(", ");
+    const notes = [
+      merged.length === 1 ? `Merged into ${merged[0].title} · ${fmtH(merged[0].hours)}` : merged.length ? `Merged into ${merged.length} matching cards` : "",
+      added.length ? `Added to ${names(added)}` : "",
+      skipped.length ? `already on ${names(skipped)}` : ""
+    ].filter(Boolean).join(" · ");
+    if (notes) toast(notes[0].toUpperCase() + notes.slice(1), changed);
   }
 
   function deleteCard() {
@@ -1488,9 +1581,64 @@
 
   const freeGoalColor = () => {
     const used = new Set(liveGoals().map(g => g.color));
-    const free = GOAL_COLORS.find(c => !used.has(c));
-    return free === undefined ? GOAL_COLORS[liveGoals().length % GOAL_COLORS.length] : free;
+    const free = COLOR_ORDER.find(c => !used.has(c));
+    return free === undefined ? COLOR_ORDER[liveGoals().length % COLOR_ORDER.length] : free;
   };
+
+  // The finish-by date is typed as month, day and year, so a half-filled one can
+  // still be read. What's there, tidied: null where empty, NaN where the day or
+  // year isn't a number. A two-digit year means 20xx, and a year or day past
+  // either end of its range becomes that end (as far as what's entered tells).
+  function dueParts() {
+    const m = +$("goalDueMonth").value || null;
+    let d = readNumber("goalDueDay"), y = readNumber("goalDueYear");
+    if (isNum(y)) {
+      y = Math.round(y);
+      y = Math.min(YEAR_MAX, Math.max(YEAR_MIN, y >= 0 && y < 100 ? 2000 + y : y));
+    }
+    if (isNum(d)) d = Math.min(m ? daysInMonth(isNum(y) ? y : 2000, m) : 31, Math.max(1, Math.round(d))); // 2000 had a Feb 29
+    return { m, d, y };
+  }
+
+  // The finish-by date as "YYYY-MM-DD": "" when left empty, null when the day or
+  // year isn't a number. Parts left out come from today (so November 2028 means
+  // the same day of the month as today); without a year it's the next time that
+  // date comes round. A day the month doesn't have becomes its nearest end.
+  function readDue() {
+    const { m, d, y } = dueParts(), today = todayStr();
+    if (m === null && d === null && y === null) return "";
+    if (Number.isNaN(d) || Number.isNaN(y)) return null;
+    const month = m || +today.slice(5, 7);
+    const on = year => `${year}-${pad2(month)}-${pad2(Math.min(daysInMonth(year, month), d === null ? +today.slice(8) : d))}`;
+    const due = on(y === null ? +today.slice(0, 4) : y);
+    return y === null && due < today ? on(+today.slice(0, 4) + 1) : due;
+  }
+
+  // Under the fields: the date they add up to.
+  function renderDueNote() {
+    const due = readDue();
+    $("goalDueNote").textContent = due === null ? "The day and year need to be numbers."
+      : due ? `${fmtDate(due, { weekday: "short", year: "numeric", month: "short", day: "numeric" })}${due < todayStr() ? " — already passed" : ""}` : "";
+    $("goalDueNote").classList.toggle("bad", due === null);
+    $("goalDueFoot").hidden = due === "";
+  }
+
+  // Leaving a finish-by field tidies what was typed: 28 becomes 2028, and a day
+  // the month doesn't have becomes its nearest end.
+  function tidyDue() {
+    const { d, y } = dueParts();
+    if (isNum(d)) $("goalDueDay").value = d;
+    if (isNum(y)) $("goalDueYear").value = y;
+    renderDueNote();
+  }
+
+  function setDue(due) {
+    const [y, m, d] = due ? due.split("-").map(Number) : [];
+    $("goalDueMonth").value = m || "";
+    $("goalDueDay").value = d || "";
+    $("goalDueYear").value = y || "";
+    renderDueNote();
+  }
 
   function openGoalEditor(id) {
     const g = id ? goalById(id) : null;
@@ -1500,7 +1648,7 @@
     $("goalName").value = g ? g.name : "";
     $("goalTarget").value = g ? fmtNum(g.target) : "";
     $("goalDone").value = g ? fmtNum(goalDone(g)) : "";
-    $("goalDue").value = g ? g.due : "";
+    setDue(g ? g.due : "");
     $("goalDeleteBtn").hidden = !g;
     renderSwatches("goalColors", editingGoal.color);
     openOverlay("goalOverlay");
@@ -1509,13 +1657,15 @@
 
   function saveGoal() {
     if (!editingGoal) return;
-    const name = $("goalName").value.trim().slice(0, MAX_TITLE);
-    const target = readNumber("goalTarget"), doneRaw = readNumber("goalDone"), due = $("goalDue").value;
-    const done = doneRaw === null ? 0 : doneRaw;
+    const name = cleanText($("goalName").value);
+    const target = readHours("goalTarget"), done = readHours("goalDone"), due = readDue();
     if (!name) { $("goalName").focus(); return alert("Give the goal a name."); }
-    if (!isPos(target)) { $("goalTarget").focus(); return alert("Enter the total hours this goal needs, e.g. 500."); }
-    if (!isNum(done) || done < 0) { $("goalDone").focus(); return alert("Hours done so far can't be negative."); }
-    if (due && !isDate(due)) { $("goalDue").focus(); return alert("That finish-by date isn't valid."); }
+    if (!isNum(target)) { $("goalTarget").focus(); return alert("Enter the total hours this goal needs, e.g. 500."); }
+    if (Number.isNaN(done)) { $("goalDone").focus(); return alert("Enter the hours done so far as a number, or leave it empty."); }
+    if (due === null) {
+      $(Number.isNaN(readNumber("goalDueDay")) ? "goalDueDay" : "goalDueYear").focus();
+      return alert("The finish-by day and year need to be numbers — or leave them empty.");
+    }
     let g = editingGoal.id ? goalById(editingGoal.id) : null;
     if (editingGoal.id && !g) {
       dismissOverlay("goalOverlay");
@@ -1527,7 +1677,7 @@
       data.goals.push(g);
     }
     // "Done so far" sets the starting amount, on top of which close-outs add up.
-    Object.assign(g, { name, target: Math.max(STEP, snap(target)), due: due || "", color: editingGoal.color, start: snap(done) - sum(Object.values(g.log)) });
+    Object.assign(g, { name, target, due, color: editingGoal.color, start: (done || 0) - sum(Object.values(g.log)) });
     dismissOverlay("goalOverlay");
     save();
     renderAll();
@@ -2268,15 +2418,16 @@
   $("cardCancelBtn").addEventListener("click", () => dismissOverlay("cardOverlay"));
   $("cardClose").addEventListener("click", () => dismissOverlay("cardOverlay"));
   $("cardDays").addEventListener("click", onDayPill);
+  $("cardDailyBtn").addEventListener("click", () => applyPreset(DAYS));
+  $("cardWeekdaysBtn").addEventListener("click", () => applyPreset(WEEKDAYS));
   $("cardColors").addEventListener("click", e => {
     const s = e.target.closest(".swatch");
     if (!s || !editing) return;
     editing.color = +s.dataset.color;
-    editing.colorPicked = true;
     renderSwatches("cardColors", editing.color);
   });
-  $("cardTitle").addEventListener("input", onCardTitleInput);
   $("cardGoal").addEventListener("change", onCardGoalChange);
+  Object.keys(HOUR_RANGES).forEach(id => $(id).addEventListener("change", tidyHours));
 
   $("goalSaveBtn").addEventListener("click", saveGoal);
   $("goalDeleteBtn").addEventListener("click", deleteGoal);
@@ -2288,6 +2439,11 @@
     editingGoal.color = +s.dataset.color;
     renderSwatches("goalColors", editingGoal.color);
   });
+  ["goalDueMonth", "goalDueDay", "goalDueYear"].forEach(id => {
+    $(id).addEventListener("input", renderDueNote);
+    $(id).addEventListener("change", tidyDue);
+  });
+  $("goalDueClearBtn").addEventListener("click", () => setDue(""));
 
   $("closeOutConfirmBtn").addEventListener("click", confirmCloseOut);
   $("closeOutLaterBtn").addEventListener("click", closeOutLaterClick);
@@ -2389,6 +2545,8 @@
   remember();
   knownToday = todayStr();
   $("appVersionTag").textContent = `v${APP_VERSION}`;
+  $("goalDueMonth").innerHTML = `<option value="">Month</option>` +
+    Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${fmtDate(`2000-${pad2(i + 1)}-01`, { month: "long" })}</option>`).join("");
   renderAll();
   checkCloseOuts();
   initSync();
