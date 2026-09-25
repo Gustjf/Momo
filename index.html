@@ -206,6 +206,7 @@
   .field-head { display: flex; align-items: center; justify-content: space-between; gap: 4px 10px; flex-wrap: wrap; margin-bottom: 5px; }
   .field-head label { margin: 0; }
   .presets { display: flex; gap: 5px; margin-left: auto; }
+  .presets button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
   .date-parts { display: flex; gap: 8px; }
   .date-parts > * { min-width: 0; }
   .date-parts select { flex: 2 1 0; }
@@ -574,6 +575,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.111", date: "2026-09-25", changes: [
+      "Clicking Daily or Weekdays again takes those days back off, and each button stays highlighted while its days are picked."
+    ] },
     { version: "1.101", date: "2026-09-25", changes: [
       "Editing a card can now add it to more days too, and the day picker has Daily and Weekdays buttons."
     ] },
@@ -1420,7 +1424,7 @@
     const card = id ? list.cards.find(c => c.id === id) : null;
     if (id && !card) return;
     const free = day === null ? 0 : DAY_HOURS - dayTotal(list, day);
-    editing = { key, id: card ? card.id : null, days: new Set([card ? card.day : day]), color: card ? card.color : newCardColor(list), lastGoalId: card ? card.goalId : null };
+    editing = { key, id: card ? card.id : null, days: new Set([card ? card.day : day]), startDay: card ? card.day : day, color: card ? card.color : newCardColor(list), lastGoalId: card ? card.goalId : null };
     $("cardModalTitle").textContent = card ? "Edit card" : "New card";
     $("cardTitle").value = card ? card.title : "";
     $("cardHours").value = fmtNum(card ? card.hours : free > 0 && free < 1 ? free : 1);
@@ -1445,6 +1449,7 @@
     if (editing.key !== "base") pills.push([null, "Parked"]);
     $("cardDays").innerHTML = pills.map(([d, name]) =>
       `<button type="button" class="day-pill${editing.days.has(d) ? " active" : ""}" data-day="${d === null ? "" : d}">${name}</button>`).join("");
+    [["cardDailyBtn", DAYS], ["cardWeekdaysBtn", WEEKDAYS]].forEach(([id, days]) => $(id).classList.toggle("active", presetOn(days)));
   }
 
   function onDayPill(e) {
@@ -1464,11 +1469,20 @@
 
   // Daily and Weekdays pick those days; on this week only from today on, and
   // days already gone keep what they had, so goal work isn't added to the past.
+  // Clicked again while all its days are picked, a preset takes them back off
+  // (back to the day the editor opened on, if nothing else is left).
   const presetDays = days => days.filter(d => d >= firstDay(editing.key));
+  const presetOn = days => presetDays(days).length > 0 && presetDays(days).every(d => editing.days.has(d));
   function applyPreset(days) {
     if (!editing) return;
-    const first = firstDay(editing.key);
-    const picked = [...editing.days].filter(d => d !== null && d < first).concat(presetDays(days));
+    const first = firstDay(editing.key), preset = presetDays(days);
+    let picked;
+    if (presetOn(days)) {
+      picked = [...editing.days].filter(d => !preset.includes(d));
+      if (!picked.length) picked = [editing.startDay];
+    } else {
+      picked = [...editing.days].filter(d => d !== null && d < first).concat(preset);
+    }
     if (!picked.length) return;
     editing.days = new Set(picked);
     renderDayPills();
