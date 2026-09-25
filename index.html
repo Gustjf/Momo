@@ -1,0 +1,2398 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Momo — Weekly Time Budget</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --border: #dcdfe4; --text: #1f2430; --muted: #6b7280;
+    --accent: #2563eb; --accent-dark: #1e40af; --good: #16a34a; --bad: #dc2626;
+    --card-bg: #f8fafc; --btn-bg: #f8fafc; --ring: rgba(37, 99, 235, 0.15);
+    --unsaved-bg: rgba(245, 158, 11, 0.15); --unsaved-border: rgba(245, 158, 11, 0.45);
+    --good-bg: rgba(22, 163, 74, 0.12); --bad-bg: rgba(220, 38, 38, 0.1);
+    /* Card colours; the last (slate) is Free time's. --tint is how much of it a card's background takes. */
+    --c0: #3b82f6; --c1: #8b5cf6; --c2: #ec4899; --c3: #f97316; --c4: #eab308; --c5: #22c55e; --c6: #14b8a6; --c7: #64748b;
+    --tint: 14%;
+    --hour: 22px; /* height of one hour on the board */
+    color-scheme: light;
+  }
+  [data-theme="dark"] {
+    --bg: #0f172a; --panel: #1e293b; --border: #334155; --text: #f8fafc; --muted: #94a3b8;
+    --accent: #3b82f6; --accent-dark: #2563eb; --good: #22c55e; --bad: #ef4444;
+    --card-bg: #0f172a; --btn-bg: #1e293b; --ring: rgba(59, 130, 246, 0.25);
+    --unsaved-bg: rgba(245, 158, 11, 0.2); --unsaved-border: rgba(245, 158, 11, 0.5);
+    --good-bg: rgba(34, 197, 94, 0.15); --bad-bg: rgba(239, 68, 68, 0.16);
+    --c7: #94a3b8;
+    --tint: 24%;
+    color-scheme: dark;
+  }
+
+  /* --- Layout --- */
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; padding: 16px; font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); transition: background-color .2s, color .2s; }
+  .app { max-width: 1180px; margin: 0 auto; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+  h1 { font-size: 1.4em; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); font-size: .85em; }
+  section { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
+  .section-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+  h2 { font-size: .95em; margin: 0; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  label { display: block; font-size: .85em; color: var(--muted); margin-bottom: 3px; }
+  .toolbar { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .empty-msg { color: var(--muted); font-size: .9em; padding: 2px 0; line-height: 1.45; }
+  .note { font-size: .8em; color: var(--muted); margin-top: 8px; }
+  .footnote { font-size: .8em; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+  .good { color: var(--good); }
+  .bad { color: var(--bad); }
+  footer { text-align: center; color: var(--muted); font-size: .78em; margin-top: 20px; }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--text); text-decoration: underline; }
+  .app-version-tag { position: fixed; bottom: 6px; right: 12px; font-size: .68em; color: var(--muted); opacity: .4; pointer-events: none; user-select: none; z-index: 500; }
+
+  /* --- Inputs --- */
+  input[type=date], input[type=number], input[type=text], select, textarea { width: 100%; padding: 7px 8px; border: 1px solid var(--border); border-radius: 5px; font-size: .95em; font-family: inherit; background: var(--panel); color: var(--text); transition: border-color .2s, box-shadow .2s; }
+  input[type=date]:focus, input[type=number]:focus, input[type=text]:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+  input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+  input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  textarea { padding: 8px; font-size: .9em; resize: vertical; min-height: 90px; }
+
+  /* --- Buttons --- */
+  button { background: var(--accent); color: #fff; border: none; padding: 8px 14px; border-radius: 5px; font-size: .9em; font-family: inherit; cursor: pointer; transition: background-color .2s; }
+  button:hover { background: var(--accent-dark); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  button.secondary:hover:not(:disabled) { background: var(--border); }
+  button.small { padding: 3px 8px; font-size: .8em; }
+  button.danger { background: transparent; color: var(--bad); border: 1px solid var(--bad); padding: 3px 8px; font-size: .8em; }
+  button.danger:hover { background: var(--bad); color: #fff; }
+  #exportBtn.unsaved { background: var(--unsaved-bg); border-color: var(--unsaved-border); }
+  #exportBtn.unsaved:hover { background: rgba(245, 158, 11, .28); border-color: rgba(245, 158, 11, .6); }
+  .banner { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--unsaved-bg); border-color: var(--unsaved-border); font-size: .9em; }
+  .banner button { flex: 0 0 auto; }
+  .theme-toggle { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 6px; font-size: .8em; }
+  .theme-toggle:hover { background: var(--card-bg); }
+  .mode-toggle { display: flex; gap: 8px; }
+  .mode-btn { flex: 1; padding: 12px 10px; font-size: .9em; font-weight: 600; border-radius: 6px; border: 1px solid var(--border); background: var(--btn-bg); color: var(--text); transition: background-color .2s, border-color .2s, color .2s; }
+  .mode-btn:hover:not(.active) { background: var(--border); }
+  .mode-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .mode-btn.active:hover { background: var(--accent-dark); }
+
+  /* --- Week tabs --- */
+  .weekbar { display: flex; align-items: stretch; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .views { flex: 1 1 480px; }
+  .views .mode-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 9px 8px; }
+  .vb-date, .vb-status { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .78em; font-weight: 400; color: var(--muted); }
+  .vb-status.good { color: var(--good); }
+  .vb-status.bad { color: var(--bad); font-weight: 600; }
+  .mode-btn.active .vb-date, .mode-btn.active .vb-status { color: #fff; opacity: .9; }
+  #closeOutNowBtn { flex: 0 0 auto; }
+
+  /* --- To Be Budgeted bank --- */
+  .bank-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px 16px; flex-wrap: wrap; }
+  .bank-figure { min-width: 0; flex: 1 1 320px; }
+  .bank-line { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+  .bank-num { font-size: 1.9em; font-weight: 700; line-height: 1.25; padding: 0 12px; border-radius: 8px; background: var(--card-bg); border: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  .bank.pos .bank-num { background: var(--good-bg); border-color: transparent; color: var(--good); }
+  .bank-of { color: var(--muted); font-size: .9em; }
+  .bank-msg { margin-top: 8px; font-size: .88em; color: var(--muted); line-height: 1.4; }
+  .bank-msg.bad { color: var(--bad); font-weight: 600; }
+  .bank-msg.good { color: var(--good); }
+  .bank-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .parking { display: flex; align-items: center; gap: 6px 8px; flex-wrap: wrap; min-height: 46px; margin-top: 12px; padding: 7px 8px; border: 1px dashed var(--border); border-radius: 8px; transition: border-color .15s, background-color .15s; }
+  .parking.drop-target { border-color: var(--accent); background: var(--ring); }
+  .parking-label { font-size: .72em; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .parking-total { font-size: .8em; color: var(--muted); }
+  .parking-cards { display: contents; }
+  .parking-empty { font-size: .8em; color: var(--muted); }
+  .parking-add { margin-left: auto; }
+
+  /* --- Board --- */
+  .board-wrap { overflow-x: auto; margin-bottom: 14px; padding-bottom: 2px; }
+  .board { display: grid; grid-template-columns: repeat(7, minmax(128px, 1fr)); gap: 8px; }
+  .col { display: flex; flex-direction: column; min-width: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; transition: border-color .15s, box-shadow .15s, opacity .15s; }
+  .col-head { padding: 8px 10px 7px; border-bottom: 1px solid var(--border); border-radius: 7px 7px 0 0; transition: background-color .15s; }
+  .col-day { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; font-size: .8em; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+  .col-date { font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; white-space: nowrap; }
+  .col-total { margin-top: 3px; font-size: .78em; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .col.full .col-total::after { content: " ✓"; }
+  .col.drop-target .col-total::after { content: none; }
+  .col-bar { height: 4px; margin-top: 5px; border-radius: 2px; background: var(--border); overflow: hidden; }
+  .col-bar span { display: block; height: 100%; border-radius: 2px; background: var(--accent); transition: width .2s; }
+  .col.full .col-total { color: var(--good); }
+  .col.full .col-bar span { background: var(--good); }
+  .col.over, .col.preview-over { border-color: var(--bad); box-shadow: 0 0 0 1px var(--bad); }
+  .col.over .col-head, .col.preview-over .col-head { background: var(--bad-bg); }
+  .col.over .col-total, .col.preview-over .col-total { color: var(--bad); font-weight: 700; }
+  .col.over .col-bar span, .col.preview-over .col-bar span { background: var(--bad); }
+  .col.today { border-color: var(--accent); }
+  .col.today .col-date { color: var(--accent); font-weight: 600; }
+  .col.past { opacity: .5; }
+  .col.drop-target:not(.preview-over) { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+  .col-body { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 6px; }
+
+  /* Cards: height follows hours (minus the gap, so a full day is exactly 24 hours tall). */
+  .card { position: relative; flex: 0 0 auto; display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; height: max(24px, calc(var(--h) * var(--hour) - 4px)); padding: 4px 7px; overflow: hidden; border-radius: 5px; border-left: 3px solid var(--c); background: color-mix(in srgb, var(--c) var(--tint), var(--panel)); font-size: .8em; line-height: 1.25; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; transition: box-shadow .15s, opacity .15s; }
+  .card:hover { box-shadow: 0 1px 4px rgba(0, 0, 0, .14); }
+  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .card-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .card-hours { flex: 0 0 auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .card.is-goal .card-title::before { content: ""; display: inline-block; box-sizing: border-box; width: 8px; height: 8px; margin: -2px 5px 0 0; border: 2px solid var(--c); border-radius: 50%; vertical-align: middle; }
+  .card.dragging { opacity: .3; }
+  .card.merge-target, .card.resizing { box-shadow: 0 0 0 2px var(--accent); }
+  .grip { position: absolute; left: 0; right: 0; bottom: 0; height: 7px; cursor: ns-resize; }
+  .grip::after { content: ""; position: absolute; left: 50%; bottom: 2px; width: 18px; height: 2px; margin-left: -9px; border-radius: 1px; background: var(--c); opacity: 0; transition: opacity .15s; }
+  .card:hover .grip::after { opacity: .8; }
+  @media (hover: none) { .grip { display: none; } }
+  .parking .card { height: auto; align-items: center; padding: 5px 8px; }
+  .board.locked .card { cursor: default; }
+  .ghost { position: fixed; left: 0; top: 0; z-index: 10001; margin: 0; pointer-events: none; opacity: .95; box-shadow: 0 8px 24px rgba(0, 0, 0, .25); }
+  .drop-line { display: none; position: fixed; z-index: 10000; height: 3px; border-radius: 2px; background: var(--accent); pointer-events: none; }
+  body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
+  body.is-resizing, body.is-resizing * { cursor: ns-resize !important; }
+  body.is-dragging, body.is-resizing { user-select: none; -webkit-user-select: none; }
+  /* The dashed block under a day's cards is its free time; click it to add a card. */
+  .free { flex: 1 0 auto; display: flex; align-items: flex-start; justify-content: center; min-height: max(28px, calc(var(--h) * var(--hour) - 4px)); padding: 6px 4px; border: 1px dashed var(--border); border-radius: 5px; background: transparent; color: var(--muted); font-size: .76em; }
+  .free:hover { background: var(--ring); border-color: var(--accent); color: var(--accent); }
+  .free.slim { flex: 0 0 auto; min-height: 26px; padding: 4px; }
+  .free.over { border-color: var(--bad); color: var(--bad); font-weight: 600; }
+
+  /* --- Goals --- */
+  .goal { padding: 10px 0; border-top: 1px solid var(--border); cursor: pointer; }
+  .goal:first-child { border-top: none; padding-top: 2px; }
+  .goal:hover .goal-name, .goal:focus-visible .goal-name { color: var(--accent); }
+  .goal:focus-visible { outline: none; }
+  .goal-top { display: flex; align-items: center; gap: 8px; }
+  .goal-dot { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+  .goal-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .goal-nums { font-size: .85em; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .goal-bar { display: flex; height: 6px; margin: 7px 0 6px 18px; border-radius: 3px; background: var(--border); overflow: hidden; }
+  .goal-bar .done { background: var(--c); }
+  .goal-bar .planned { background: color-mix(in srgb, var(--c) 40%, transparent); }
+  .goal-bottom { display: flex; align-items: center; justify-content: space-between; gap: 6px 10px; flex-wrap: wrap; margin-left: 18px; }
+  .goal-meta { font-size: .8em; color: var(--muted); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: .75em; font-weight: 600; white-space: nowrap; }
+  /* Pills on a fixed light background keep their dark text in both themes. */
+  .badge.funded, .badge.reached { background: #dcfce7; color: #16a34a; }
+  .badge.under { background: #fef3c7; color: #92400e; }
+  .badge.plain { background: var(--border); color: var(--muted); }
+
+  /* --- Modals --- */
+  .overlay { display: none; position: fixed; inset: 0; z-index: 10000; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, .5); }
+  .overlay.open { display: flex; }
+  .modal { position: relative; width: 100%; max-width: 440px; max-height: 88vh; overflow-y: auto; padding: 16px 18px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 30px rgba(0, 0, 0, .3); }
+  .modal.wide { max-width: 540px; }
+  .modal h3 { margin: 0 0 12px; padding-right: 22px; font-size: 1.05em; }
+  .modal-hint { margin: -4px 0 12px; font-size: .84em; color: var(--muted); line-height: 1.45; }
+  .modal-status { font-size: .82em; margin-top: 8px; min-height: 1.2em; }
+  .field { margin-bottom: 12px; min-width: 0; }
+  .field-row { display: flex; gap: 10px; }
+  .field-row > .field { flex: 1; }
+  .modal-actions { display: flex; align-items: center; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .modal-actions .spacer { flex: 1; }
+  .modal-close { position: absolute; top: 8px; right: 10px; padding: 0; background: none; color: var(--muted); font-size: 1.1em; }
+  .modal-close:hover { background: none; color: var(--text); }
+  .stepper { display: flex; }
+  .stepper input { min-width: 0; text-align: center; border-radius: 0; }
+  .step-btn { flex: 0 0 34px; padding: 0; border: 1px solid var(--border); background: var(--btn-bg); color: var(--text); font-size: 1.1em; line-height: 1; }
+  .step-btn:first-child { border-radius: 5px 0 0 5px; border-right: none; }
+  .step-btn:last-child { border-radius: 0 5px 5px 0; border-left: none; }
+  .step-btn:hover { background: var(--border); }
+  .day-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+  .day-pill { min-width: 44px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--btn-bg); color: var(--text); font-size: .82em; }
+  .day-pill:hover:not(.active) { background: var(--border); }
+  .day-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+  .swatch { width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 2px solid var(--panel); background: var(--c); box-shadow: 0 0 0 1px var(--border); transition: transform .1s; }
+  .swatch:hover { background: var(--c); transform: scale(1.12); }
+  .swatch.active { box-shadow: 0 0 0 2px var(--text); }
+  .co-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+  .co-name { display: flex; align-items: center; gap: 7px; font-weight: 600; }
+  .co-detail { margin-top: 3px; font-size: .8em; color: var(--muted); }
+  .co-missed label { margin-bottom: 2px; font-size: .75em; }
+  .co-missed .stepper { width: 128px; }
+  .co-result { grid-column: 1 / -1; font-size: .82em; color: var(--muted); }
+  .co-result strong { color: var(--text); }
+
+  /* --- Toast (undo) --- */
+  .toast { position: fixed; left: 50%; bottom: 20px; z-index: 10003; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px); padding: 8px 8px 8px 14px; border-radius: 8px; background: #1f2430; color: #f8fafc; font-size: .86em; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); }
+  [data-theme="dark"] .toast { background: #f8fafc; color: #1f2430; }
+  .toast-btn { flex: 0 0 auto; padding: 5px 10px; background: transparent; color: #93c5fd; font-weight: 700; }
+  .toast-btn:hover { background: rgba(147, 197, 253, .15); }
+  [data-theme="dark"] .toast-btn { color: #2563eb; }
+
+  /* --- Developer mode (Ctrl+9) & bug reports --- */
+  .dev-badge, .dev-panel { display: none; position: fixed; right: 14px; }
+  body.dev-mode .dev-badge, body.dev-mode .dev-panel { display: block; }
+  .dev-badge { bottom: 14px; padding: 4px 9px; border-radius: 12px; background: var(--accent); color: #fff; font-size: .72em; font-weight: 700; cursor: pointer; z-index: 9998; box-shadow: 0 2px 6px rgba(0, 0, 0, .2); }
+  .dev-panel { bottom: 48px; width: 300px; max-height: 70vh; overflow-y: auto; padding: 12px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; font-size: .85em; z-index: 9999; box-shadow: 0 4px 16px rgba(0, 0, 0, .25); }
+  .dev-panel h3 { margin: 0 0 2px; font-size: 1em; }
+  .dev-panel ul { margin: 4px 0 0; padding-left: 18px; }
+  .dev-panel li { margin-bottom: 2px; }
+  .dev-version { color: var(--muted); font-size: .85em; margin-bottom: 10px; }
+  .dev-block { border-top: 1px solid var(--border); padding: 8px 0; }
+  .dev-block-head { font-size: .85em; color: var(--muted); margin-bottom: 6px; }
+  .dev-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .dev-hint { font-size: .78em; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+  #devChangelog { border-top: 1px solid var(--border); }
+  .changelog-entry { border-top: 1px solid var(--border); padding: 8px 0; }
+  .changelog-entry:first-child { border-top: none; }
+  .changelog-version { font-weight: 700; }
+  .changelog-date { color: var(--muted); font-size: .78em; margin-left: 6px; }
+
+  @media (max-width: 640px) {
+    :root { --hour: 18px; }
+    body { padding: 10px; }
+    .board { grid-template-columns: repeat(7, 124px); }
+    .views .mode-btn { padding: 8px 4px; font-size: .84em; }
+    .bank-num { font-size: 1.6em; }
+    .field-row { flex-direction: column; gap: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div>
+      <h1>Momo</h1>
+      <div class="subtitle">A weekly time budget. Give every hour a job.</div>
+    </div>
+    <button class="theme-toggle" id="themeToggle">🌓 Theme</button>
+  </div>
+
+  <section id="syncBanner" class="banner" hidden>
+    <span id="syncBannerText"></span>
+    <button id="syncBannerBtn">Reconnect</button>
+  </section>
+
+  <section id="closeOutBanner" class="banner" hidden>
+    <span id="closeOutBannerText"></span>
+    <button id="closeOutBannerBtn">Review</button>
+  </section>
+
+  <section id="testBanner" class="banner" hidden>
+    <span id="testBannerText"></span>
+    <button id="testBannerBtn">Reload</button>
+  </section>
+
+  <div class="weekbar">
+    <div class="mode-toggle views" id="viewToggle">
+      <button type="button" class="mode-btn" data-view="this"><span>This week</span><span class="vb-date" id="tabDate_this"></span><span class="vb-status" id="tabStatus_this"></span></button>
+      <button type="button" class="mode-btn" data-view="next"><span>Next week</span><span class="vb-date" id="tabDate_next"></span><span class="vb-status" id="tabStatus_next"></span></button>
+      <button type="button" class="mode-btn" data-view="base"><span>Baseline</span><span class="vb-date" id="tabDate_base"></span><span class="vb-status" id="tabStatus_base"></span></button>
+    </div>
+    <button class="secondary" id="closeOutNowBtn" hidden>Close out this week</button>
+  </div>
+
+  <section class="bank" id="bank">
+    <div class="bank-top">
+      <div class="bank-figure">
+        <h2 id="bankLabel">To Be Budgeted</h2>
+        <div class="bank-line" id="bankLine"><span class="bank-num" id="bankNum"></span><span class="bank-of" id="bankOf"></span></div>
+        <div class="bank-msg" id="bankMsg"></div>
+      </div>
+      <div class="bank-actions">
+        <button id="loadBaselineBtn">Load baseline</button>
+        <button id="gotoBaselineBtn">Set up baseline &rarr;</button>
+        <button id="sampleBaselineBtn">Start from a sample</button>
+        <button class="secondary" id="fillGapsBtn">Fill gaps with Free time</button>
+        <button class="secondary" id="reopenBtn">Reopen week</button>
+        <button class="secondary" id="clearBtn">Clear week</button>
+      </div>
+    </div>
+    <div class="parking" id="parking">
+      <span class="parking-label">Parked</span>
+      <span class="parking-total" id="parkedTotal"></span>
+      <div class="parking-cards" id="parkingCards"></div>
+      <button class="secondary small parking-add" id="addParkedBtn">+ New card</button>
+    </div>
+  </section>
+
+  <div class="board-wrap" id="boardWrap">
+    <div class="board" id="board"></div>
+  </div>
+
+  <section id="goalsSection">
+    <div class="section-header">
+      <h2>Long-term goals</h2>
+      <button class="secondary small" id="newGoalBtn">+ New goal</button>
+    </div>
+    <div id="goalsEmpty" class="empty-msg">No goals yet. Add a long-term project &mdash; a novel, a language, a certification &mdash; and fund it a few hours every week.</div>
+    <div id="goalsList"></div>
+  </section>
+
+  <section>
+    <h2>Backup &amp; sync</h2>
+    <div class="toolbar">
+      <button class="secondary" id="exportBtn">Export JSON</button>
+      <button class="secondary" id="importBtn">Import JSON</button>
+      <button class="secondary" id="syncBtn" hidden>Sync Folder&hellip;</button>
+      <input type="file" id="fileImport" accept=".json,application/json" hidden>
+    </div>
+    <div id="syncStatus" class="note"></div>
+    <div class="footnote">Your plans live only in this browser. Export a backup now and then, or sync to a folder to keep them on other devices too.</div>
+  </section>
+
+  <footer>
+    Momo &middot; Offline single-file HTML5 app &middot; <a href="#" id="reportBugLink">Report a bug</a>
+  </footer>
+</div>
+
+<div class="drop-line" id="dropLine"></div>
+<div class="toast" id="toast" hidden role="status"><span id="toastText"></span><button class="toast-btn" id="toastUndo">Undo</button></div>
+<div class="app-version-tag" id="appVersionTag"></div>
+<div class="dev-badge" id="devBadge" title="Developer mode (Ctrl+9)">DEV</div>
+<div class="dev-panel" id="devPanel">
+  <button class="modal-close" id="devPanelClose" aria-label="Close">&times;</button>
+  <h3>Developer Mode</h3>
+  <div class="dev-version">Version <span id="devVersionNum"></span></div>
+  <div class="dev-block">
+    <div class="dev-block-head">Time travel (testing) &middot; today is <strong id="devToday"></strong></div>
+    <div class="dev-actions">
+      <button class="secondary small" id="devPlusDayBtn">+1 day</button>
+      <button class="secondary small" id="devPlusWeekBtn">+1 week</button>
+    </div>
+    <div class="dev-hint">Switches to test mode: nothing is saved or synced until you reload.</div>
+  </div>
+  <div class="dev-block">
+    <div class="dev-block-head">Bug reports: <strong id="devBugReportCount">0</strong></div>
+    <div class="dev-actions">
+      <button class="secondary small" id="devCopyBugReportsBtn">Copy all</button>
+      <button class="secondary small" id="devDownloadBugReportsBtn">Download .md</button>
+      <button class="danger" id="devClearBugReportsBtn">Clear</button>
+    </div>
+  </div>
+  <div id="devChangelog"></div>
+</div>
+
+<div class="overlay" id="cardOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cardModalTitle">
+    <button class="modal-close" id="cardClose" aria-label="Close">&times;</button>
+    <h3 id="cardModalTitle">New card</h3>
+    <div class="field">
+      <label for="cardTitle">What</label>
+      <input type="text" id="cardTitle" maxlength="40" list="titleSuggestions" placeholder="e.g. Gym" autocomplete="off">
+      <datalist id="titleSuggestions"></datalist>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="cardHours">Hours</label>
+        <div class="stepper">
+          <button type="button" class="step-btn" data-step="-1" aria-label="Less">&minus;</button>
+          <input type="number" id="cardHours" step="0.25" min="0.25" max="24">
+          <button type="button" class="step-btn" data-step="1" aria-label="More">+</button>
+        </div>
+      </div>
+      <div class="field" id="cardGoalField">
+        <label for="cardGoal">Goal</label>
+        <select id="cardGoal"></select>
+      </div>
+    </div>
+    <div class="field">
+      <label id="cardDaysLabel">Days</label>
+      <div class="day-pills" id="cardDays"></div>
+    </div>
+    <div class="field" id="cardColorField">
+      <label>Colour</label>
+      <div class="swatches" id="cardColors"></div>
+    </div>
+    <div class="modal-actions">
+      <button id="cardSaveBtn">Save</button>
+      <button class="secondary" id="cardCancelBtn">Cancel</button>
+      <span class="spacer"></span>
+      <button class="danger" id="cardDeleteBtn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="goalOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="goalModalTitle">
+    <button class="modal-close" id="goalClose" aria-label="Close">&times;</button>
+    <h3 id="goalModalTitle">New goal</h3>
+    <div class="field">
+      <label for="goalName">Goal</label>
+      <input type="text" id="goalName" maxlength="40" placeholder="e.g. Write the novel" autocomplete="off">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="goalTarget">Total hours</label>
+        <input type="number" id="goalTarget" min="1" step="1" placeholder="e.g. 500">
+      </div>
+      <div class="field">
+        <label for="goalDone">Done so far</label>
+        <input type="number" id="goalDone" min="0" step="0.25" placeholder="0">
+      </div>
+    </div>
+    <div class="field">
+      <label for="goalDue">Finish by (optional)</label>
+      <input type="date" id="goalDue">
+    </div>
+    <div class="field">
+      <label>Colour</label>
+      <div class="swatches" id="goalColors"></div>
+    </div>
+    <div class="modal-actions">
+      <button id="goalSaveBtn">Save</button>
+      <button class="secondary" id="goalCancelBtn">Cancel</button>
+      <span class="spacer"></span>
+      <button class="danger" id="goalDeleteBtn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="closeOutOverlay">
+  <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="closeOutTitle">
+    <h3 id="closeOutTitle">Close out the week</h3>
+    <p class="modal-hint">Momo assumes you did the goal work you planned. If some of it didn't happen, enter those hours under &ldquo;Didn't do&rdquo; and they go back on the goal. Everything else from the week is simply let go &mdash; there's nothing else to account for.</p>
+    <div id="closeOutRows"></div>
+    <div class="modal-actions">
+      <button id="closeOutConfirmBtn">Close out week</button>
+      <button class="secondary" id="closeOutLaterBtn">Later</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="bugReportOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="bugReportTitle">
+    <button class="modal-close" id="bugReportClose" aria-label="Close">&times;</button>
+    <h3 id="bugReportTitle">Report a Bug</h3>
+    <p class="modal-hint">Describe what happened and what you expected, then Submit. That saves the report locally (with environment, app state, and recent console activity &mdash; no card or goal names) and copies it to your clipboard. Saved reports are managed from Developer Mode.</p>
+    <textarea id="bugReportText" rows="5" placeholder="What went wrong? What did you expect to happen?"></textarea>
+    <div class="modal-actions"><button id="bugReportSubmitBtn">Submit Report</button></div>
+    <div class="modal-status" id="bugReportStatus"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ==========================================================================
+  // CONSTANTS & STATE
+  // ==========================================================================
+  const KEYS = {
+    data: "momoData_v1",
+    theme: "momoTheme_v1",
+    bugReports: "momoBugReports_v1",
+    sync: "momoSync_v1"
+  };
+  const DAY_HOURS = 24;
+  const DAYS = [0, 1, 2, 3, 4, 5, 6]; // Monday first
+  const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const DAY_LONG = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const STEP = 0.25;        // time moves in 15-minute steps
+  const BUTTON_STEP = 0.5;  // what the − / + buttons move by
+  const MAX_TITLE = 40;
+  const PALETTE = 8;        // card colours --c0…--c7
+  const FREE_TIME = "Free time";
+  const FREE_TIME_COLOR = 7;
+  const GOAL_COLORS = [0, 2, 5, 3, 1, 6, 4]; // the order new goals take colours in
+  const UNDO_MAX = 40;
+  const TOAST_MS = 6000;
+  const BUG_REPORTS_MAX = 20;
+  const DEBUG_LOG_MAX = 40;
+  const SYNC_CHECK_MS = 5000;    // how often the sync folder is checked for other devices' saves
+  const AUTOSAVE_DELAY_MS = 400; // quick edits in a row are saved to the folder once
+  // Drag & drop: a mouse drag starts after a few pixels; on touch a card is held
+  // for a moment first, so a plain swipe still scrolls.
+  const DRAG_START_PX = 4;
+  const TOUCH_HOLD_MS = 250;
+  const TOUCH_SLOP_PX = 8;
+  const EDGE_PX = 48;            // the page and board scroll while dragging this close to an edge
+  // Backup file format. Bump only when the shape changes in a way import has to migrate.
+  const DATA_SCHEMA_VERSION = 1;
+  // "Start from a sample" in an empty baseline.
+  const SAMPLE_BASELINE = [
+    { title: "Sleep", hours: 8, days: DAYS, color: 1 },
+    { title: "Work", hours: 8, days: [0, 1, 2, 3, 4], color: 0 },
+    { title: "Commute", hours: 1, days: [0, 1, 2, 3, 4], color: 6 },
+    { title: "Meals & chores", hours: 2, days: DAYS, color: 4 }
+  ];
+
+  let data = emptyData();    // everything saved and synced: { weeks, baseline, goals }
+  let view = "next";         // "this" | "next" | "base" — the board on screen; always opens on next week
+  let unsavedChanges = false;
+  let devModeOn = false;
+  let bugReports = [];       // { id, timestamp, description, markdown }
+  let dayOffset = 0;         // developer time travel, in days
+  let testMode = false;      // on once time travel is used: nothing is saved or synced until a reload
+  let undoStack = [];        // earlier versions of data as JSON, newest last
+  let lastSavedJSON = "";    // data as of the last save, as JSON…
+  let lastSaved = null;      // …and parsed, to tell what the next change touched
+  let closing = null;        // the close-out on screen: { key, rows: [{ goalId, name, color, hours, days, missed }] }
+  let closeOutLater = false; // "Later" was picked: the banner stands in for the close-out until the next week
+  let knownToday = "";       // today as of the last check, to notice midnight and new weeks
+  let editing = null;        // the card editor's state
+  let editingGoal = null;    // the goal editor's state
+  let press = null;          // a pointer down on a card that isn't a drag yet
+  let drag = null;           // the drag in progress
+  let resize = null;         // the resize in progress
+  let suppressClick = false; // the click that ends a drag isn't a tap
+  let renderPending = false; // a redraw held back until a drag ends
+  let toastTimer = 0;
+
+  // Folder autosave & sync (see that section below).
+  const syncSupported = typeof window.showDirectoryPicker === "function";
+  let syncMeta = {};         // this device's sync identity: { device, file, clock, changedAt, dirty }
+  let syncDir = null;        // the chosen folder
+  let syncState = "off";     // "off" | "on" | "paused" (needs permission again) | "error"
+  let syncMessage = "";      // banner text while in "error"
+  let syncNote = "";         // the last thing sync did, for the status line
+  let syncSeen = new Map();  // file name -> "lastModified:size" already read
+  let syncQueue = Promise.resolve();
+  let syncQueued = false;
+  let autosaveTimer = 0;
+
+  // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
+  // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
+  const CHANGELOG = [
+    { version: "1.000", date: "2026-09-25", changes: [
+      "Initial release: a YNAB-style weekly time budget — 168 hours to give a job, seven 24-hour day columns, and drag-and-drop cards sized by duration.",
+      "A baseline week that loads in one click, long-term goals with optional finish-by dates, and a weekly close-out that logs goal hours.",
+      "Local storage, JSON export/import, autosave & sync to a folder, undo, bug reports, and Developer Mode with time travel for testing."
+    ] }
+  ];
+  const APP_VERSION = CHANGELOG[0].version;
+
+  // ==========================================================================
+  // CONSOLE CAPTURE (for bug reports) — first, so init problems are caught too
+  // ==========================================================================
+  const debugLog = [];
+  function logDebug(level, message) {
+    debugLog.push({ time: new Date().toISOString(), level, message: String(message) });
+    if (debugLog.length > DEBUG_LOG_MAX) debugLog.shift();
+  }
+  ["error", "warn"].forEach(level => {
+    const native = console[level].bind(console);
+    console[level] = (...args) => {
+      logDebug(level, args.map(a => (a && a.stack) || a).join(" "));
+      native(...args);
+    };
+  });
+  window.addEventListener("error", e => logDebug("error", `${e.message} (${e.filename}:${e.lineno})`));
+  window.addEventListener("unhandledrejection", e => logDebug("error", `Unhandled rejection: ${(e.reason && e.reason.message) || e.reason}`));
+
+  // ==========================================================================
+  // HELPERS
+  // ==========================================================================
+  const $ = id => document.getElementById(id);
+  const isNum = v => typeof v === "number" && isFinite(v);
+  const isPos = v => isNum(v) && v > 0;
+  const isObj = v => !!v && typeof v === "object" && !Array.isArray(v);
+  const sum = arr => arr.reduce((s, v) => s + v, 0);
+  const newId = () => Math.random().toString(36).slice(2, 10).padEnd(8, "0");
+  const esc = s => String(s).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[ch]);
+  // Hours sit on the 15-minute grid, and one card holds at most a day.
+  const snap = h => Math.round(h / STEP) * STEP;
+  const clampHours = h => Math.min(DAY_HOURS, Math.max(STEP, snap(h)));
+  const fmtNum = n => String(+n.toFixed(2));
+  const fmtH = h => (h > 0 && h < 1 ? `${Math.round(h * 60)}m` : `${fmtNum(h)}h`);
+
+  // Dates are "YYYY-MM-DD" calendar days. Date math runs in UTC so timezones and
+  // daylight saving can't shift a day; only "today" reads the local clock.
+  const DAY_MS = 86400000;
+  const dateMs = d => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10));
+  const msDate = ms => new Date(ms).toISOString().slice(0, 10);
+  const isDate = d => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) && msDate(dateMs(d)) === d;
+  const daysBetween = (a, b) => Math.round((dateMs(b) - dateMs(a)) / DAY_MS);
+  const addDays = (d, n) => msDate(dateMs(d) + n * DAY_MS);
+  // Today, moved by any developer time travel.
+  const todayStr = () => { const n = new Date(); return addDays(msDate(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate())), dayOffset); };
+  const fmtDate = (d, opts = { year: "numeric", month: "short", day: "numeric" }) =>
+    new Date(dateMs(d)).toLocaleDateString(undefined, { ...opts, timeZone: "UTC" });
+  const fmtShort = d => fmtDate(d, { month: "short", day: "numeric" });
+  // Weeks run Monday to Sunday and are known by their Monday's date.
+  const dayIndex = d => (new Date(dateMs(d)).getUTCDay() + 6) % 7; // 0 = Monday
+  const weekKeyOf = d => addDays(d, -dayIndex(d));
+  const isWeekKey = k => isDate(k) && dayIndex(k) === 0;
+  const thisWeekKey = () => weekKeyOf(todayStr());
+  const nextWeekKey = () => addDays(thisWeekKey(), 7);
+  // "Sep 28 – Oct 4", or "Sep 21 – 27" within one month.
+  function fmtWeek(key) {
+    const end = addDays(key, 6);
+    return `${fmtShort(key)} – ${key.slice(5, 7) === end.slice(5, 7) ? +end.slice(8) : fmtShort(end)}`;
+  }
+
+  // A colour picked from a title, so the same title always starts with the same colour.
+  const hashColor = t => [...t.toLowerCase()].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % (PALETTE - 1);
+
+  // ==========================================================================
+  // DATA MODEL
+  // ==========================================================================
+  // weeks:    { "YYYY-MM-DD" (Monday): { cards, closed, u } }
+  // baseline: { cards, u } — the default week, loaded into weeks in one click
+  // goals:    [{ id, name, target, start, due, color, log: { weekKey: hours }, deleted, u }]
+  // card:     { id, title, hours, day: 0-6 | null (parked), goalId, color, base }
+  // A day's cards show in the order they're listed. `u` is when that week,
+  // baseline or goal last changed, which is how sync combines two devices' edits.
+  function emptyData() { return { weeks: {}, baseline: { cards: [], u: 0 }, goals: [] }; }
+  const blankWeek = () => ({ cards: [], closed: false, u: 0 });
+  const weekOf = key => data.weeks[key] || blankWeek(); // for reading: a week not planned yet reads as empty
+  const ensureWeek = key => data.weeks[key] || (data.weeks[key] = blankWeek());
+  const viewKey = () => (view === "this" ? thisWeekKey() : view === "next" ? nextWeekKey() : null);
+  const shownKey = () => viewKey() || "base";
+  const readList = key => (key === "base" ? data.baseline : weekOf(key));
+  const listFor = key => (key === "base" ? data.baseline : ensureWeek(key)); // for changing
+  const shownList = () => readList(shownKey());
+  const isLocked = () => view !== "base" && shownList().closed;
+  const hasData = d => d.goals.length > 0 || d.baseline.cards.length > 0 || Object.values(d.weeks).some(w => w.cards.length > 0);
+
+  // Goals. Hours done = what it started with plus every closed-out week's hours.
+  const liveGoals = () => data.goals.filter(g => !g.deleted);
+  const goalById = id => (id && data.goals.find(g => g.id === id && !g.deleted)) || null;
+  const goalDone = g => Math.max(0, g.start + sum(Object.values(g.log)));
+  const goalLeft = g => Math.max(0, g.target - goalDone(g));
+  const isReached = g => goalDone(g) >= g.target;
+  // Weeks from the given week to a goal's finish-by week, both included.
+  const weeksLeft = (g, key) => Math.floor(daysBetween(key, weekKeyOf(g.due)) / 7) + 1;
+
+  const dayTotal = (list, d) => sum(list.cards.filter(c => c.day === d).map(c => c.hours));
+  // Goal hours scheduled on a board's days (parked cards aren't scheduled).
+  const plannedFor = (list, goalId) => sum(list.cards.filter(c => c.goalId === goalId && c.day !== null).map(c => c.hours));
+
+  // A board's budget. Each day is its own account: one day's free hours can't
+  // cover another day's overbooking, so both are counted per day. This week
+  // only counts today onward — earlier hours are already spent.
+  function budgetOf(list, key) {
+    const first = key === thisWeekKey() ? dayIndex(todayStr()) : 0;
+    const days = DAYS.filter(d => d >= first);
+    const totals = DAYS.map(d => dayTotal(list, d));
+    return {
+      days, totals, first,
+      pool: days.length * DAY_HOURS,
+      free: sum(days.map(d => Math.max(0, DAY_HOURS - totals[d]))),
+      over: days.filter(d => totals[d] > DAY_HOURS).map(d => ({ d, by: totals[d] - DAY_HOURS })),
+      parked: sum(list.cards.filter(c => c.day === null).map(c => c.hours))
+    };
+  }
+
+  // Hours a week a goal needs from the given week on to finish by its date:
+  // what's left after closed-out work and earlier open weeks' plans, spread over
+  // the weeks remaining. null when it has no date.
+  function weeklyNeed(g, key) {
+    if (!g.due) return null;
+    const earlier = sum(Object.keys(data.weeks).filter(k => k < key && !data.weeks[k].closed).map(k => plannedFor(data.weeks[k], g.id)));
+    const left = Math.max(0, g.target - goalDone(g) - earlier);
+    return Math.ceil(left / Math.max(1, weeksLeft(g, key)) / STEP) * STEP;
+  }
+
+  // A new card's colour: the one already used for that title, else one from the title.
+  function colorFor(title) {
+    const t = title.trim().toLowerCase();
+    for (const list of [data.baseline, ...Object.values(data.weeks)]) {
+      const c = list.cards.find(x => !x.goalId && x.title.toLowerCase() === t);
+      if (c) return c.color;
+    }
+    return t === FREE_TIME.toLowerCase() ? FREE_TIME_COLOR : hashColor(t);
+  }
+
+  // Cards are consolidated: one block per activity per day. A card dropped or
+  // created on a day that already has a matching card (same title and goal)
+  // folds into it — unless that would make a card longer than a day. Parked
+  // cards stay separate.
+  const sameKind = (a, b) => a.title.toLowerCase() === b.title.toLowerCase() && (a.goalId || null) === (b.goalId || null);
+  function mergeTarget(list, card, day) {
+    if (day === null) return null;
+    return list.cards.find(c => c !== card && c.day === day && sameKind(c, card) && c.hours + card.hours <= DAY_HOURS) || null;
+  }
+
+  // Puts a card before the card beforeId, or after the last card on its day.
+  function insertCard(list, card, beforeId) {
+    let i = beforeId ? list.cards.findIndex(c => c.id === beforeId) : -1;
+    if (i < 0) i = list.cards.map(c => c.day).lastIndexOf(card.day) + 1 || list.cards.length;
+    list.cards.splice(i, 0, card);
+  }
+
+  // Moves a card to a day (null = parked), before the card beforeId or last.
+  // Returns the card it merged into, if it did.
+  function moveCard(list, id, day, beforeId) {
+    const card = list.cards.find(c => c.id === id);
+    if (!card) return null;
+    const into = card.day !== day ? mergeTarget(list, card, day) : null;
+    list.cards = list.cards.filter(c => c !== card);
+    if (into) {
+      into.hours += card.hours;
+      return into;
+    }
+    card.day = day;
+    insertCard(list, card, beforeId);
+    return null;
+  }
+
+  // After a card is edited where it is, folds it into a matching card on its day.
+  function settle(list, card) {
+    const into = mergeTarget(list, card, card.day);
+    if (!into) return null;
+    into.hours += card.hours;
+    list.cards = list.cards.filter(c => c !== card);
+    return into;
+  }
+
+  // ==========================================================================
+  // STORAGE
+  // ==========================================================================
+  // Storage can be blocked (strict privacy settings); the app then keeps working
+  // in memory and warns once that nothing will be kept.
+  let storageWarned = false;
+  function storageGet(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+  function storageSet(key, value) {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {
+      console.error("Couldn't save to local storage.", e);
+      if (!storageWarned) alert("This browser isn't letting Momo save your data, so it will be lost when the page closes. Use Export JSON to keep a copy.");
+      storageWarned = true;
+    }
+  }
+  function readJSON(key) {
+    try { return JSON.parse(storageGet(key)); } catch (e) { return null; }
+  }
+
+  const persist = () => storageSet(KEYS.data, JSON.stringify(data));
+  function remember() {
+    lastSavedJSON = JSON.stringify(data);
+    lastSaved = JSON.parse(lastSavedJSON);
+  }
+
+  // Stamps each week, the baseline and each goal that changed since the last
+  // save with the time, so sync knows which side's copy is newer.
+  function stampChanges(prev) {
+    if (!prev) return;
+    const now = Date.now(), same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    Object.keys(data.weeks).forEach(k => { if (!same(data.weeks[k], prev.weeks[k])) data.weeks[k].u = now; });
+    if (!same(data.baseline, prev.baseline)) data.baseline.u = now;
+    const old = new Map(prev.goals.map(g => [g.id, g]));
+    data.goals.forEach(g => { if (!same(g, old.get(g.id))) g.u = now; });
+  }
+
+  // Keeps a change made on this device: the previous version goes on the undo
+  // list, then it's stored locally and autosaved to the sync folder (which, when
+  // on, stands in for Export JSON). Returns false if nothing actually changed.
+  function save({ undo = true } = {}) {
+    if (JSON.stringify(data) === lastSavedJSON) return false;
+    stampChanges(lastSaved);
+    if (undo && lastSavedJSON) {
+      undoStack.push(lastSavedJSON);
+      if (undoStack.length > UNDO_MAX) undoStack.shift();
+    }
+    remember();
+    store();
+    return true;
+  }
+
+  // Writes the current data out: locally, then to the sync folder. Test mode
+  // (time travel) keeps everything in memory.
+  function store(unsaved = true) {
+    if (testMode) return;
+    persist();
+    markLocalChange();
+    setUnsaved(unsaved && syncState !== "on");
+    scheduleAutosave();
+  }
+
+  const storeSyncMeta = () => storageSet(KEYS.sync, JSON.stringify(syncMeta));
+
+  // Each change made here counts up this device's version, which is how other
+  // devices tell its saves apart from ones they've already seen.
+  function markLocalChange() {
+    syncMeta.clock[syncMeta.device] = (syncMeta.clock[syncMeta.device] || 0) + 1;
+    syncMeta.changedAt = new Date().toISOString();
+    syncMeta.dirty = true; // not in the sync folder yet
+    storeSyncMeta();
+  }
+
+  // Highlights Export JSON while there are changes that aren't in a backup yet.
+  function setUnsaved(value) {
+    unsavedChanges = value;
+    $("exportBtn").classList.toggle("unsaved", value);
+  }
+
+  /**
+   * Cleans backup (or saved) data into the current shape. Cards without a
+   * title or valid hours, and goals without a name or target, are dropped, as
+   * are unknown fields; hours are put on the 15-minute grid. Damaged storage
+   * or a hand-edited file can't break the app this way.
+   */
+  function cleanCard(c, allowParked) {
+    if (!isObj(c)) return null;
+    const title = typeof c.title === "string" ? c.title.trim().slice(0, MAX_TITLE) : "";
+    if (!title || !isPos(c.hours)) return null;
+    const onDay = Number.isInteger(c.day) && c.day >= 0 && c.day <= 6;
+    if (!onDay && !allowParked) return null;
+    return {
+      id: typeof c.id === "string" && c.id ? c.id.slice(0, 40) : newId(),
+      title,
+      hours: clampHours(c.hours),
+      day: onDay ? c.day : null,
+      goalId: typeof c.goalId === "string" && c.goalId ? c.goalId.slice(0, 40) : null,
+      color: Number.isInteger(c.color) && c.color >= 0 && c.color < PALETTE ? c.color : hashColor(title),
+      base: c.base === true
+    };
+  }
+  function cleanCards(list, allowParked) {
+    const ids = new Set();
+    return (Array.isArray(list) ? list : []).map(c => cleanCard(c, allowParked)).filter(Boolean).map(c => {
+      if (ids.has(c.id)) c.id = newId();
+      ids.add(c.id);
+      return c;
+    });
+  }
+  const cleanU = u => (isPos(u) ? u : 0);
+  function cleanGoal(g) {
+    if (!isObj(g) || typeof g.id !== "string" || !g.id) return null;
+    const name = typeof g.name === "string" ? g.name.trim().slice(0, MAX_TITLE) : "";
+    if (!name || !isPos(g.target)) return null;
+    const log = {};
+    if (isObj(g.log)) Object.keys(g.log).forEach(k => { if (isWeekKey(k) && isPos(g.log[k])) log[k] = snap(g.log[k]); });
+    return {
+      id: g.id.slice(0, 40),
+      name,
+      target: Math.max(STEP, snap(g.target)),
+      start: isNum(g.start) ? snap(g.start) : 0,
+      due: isDate(g.due) ? g.due : "",
+      color: Number.isInteger(g.color) && g.color >= 0 && g.color < PALETTE ? g.color : 0,
+      log,
+      deleted: g.deleted === true,
+      u: cleanU(g.u)
+    };
+  }
+  function normalizeData(raw) {
+    const out = emptyData();
+    if (!isObj(raw)) return out;
+    if (isObj(raw.weeks)) {
+      Object.keys(raw.weeks).sort().forEach(k => {
+        const w = raw.weeks[k];
+        if (isWeekKey(k) && isObj(w)) out.weeks[k] = { cards: cleanCards(w.cards, true), closed: w.closed === true, u: cleanU(w.u) };
+      });
+    }
+    if (isObj(raw.baseline)) out.baseline = { cards: cleanCards(raw.baseline.cards, false), u: cleanU(raw.baseline.u) };
+    const ids = new Set();
+    out.goals = (Array.isArray(raw.goals) ? raw.goals : []).map(cleanGoal).filter(g => g && !ids.has(g.id) && ids.add(g.id));
+    return out;
+  }
+  const isMomoData = raw => isObj(raw) && (isObj(raw.weeks) || isObj(raw.baseline) || Array.isArray(raw.goals));
+
+  function loadAll() {
+    // Saved data goes through the same cleanup as imports; write it back if anything had to change.
+    const stored = storageGet(KEYS.data);
+    data = normalizeData(readJSON(KEYS.data));
+    if (stored !== null && stored !== JSON.stringify(data)) persist();
+
+    // This device's sync identity. A new one counts data already here as a change,
+    // so a sync folder's data is combined with it rather than replacing it.
+    const s = readJSON(KEYS.sync), clock = s && cleanClock(s.clock);
+    if (clock && typeof s.device === "string" && typeof s.file === "string") {
+      syncMeta = { device: s.device, file: s.file, clock, changedAt: String(s.changedAt || ""), dirty: !!s.dirty };
+    } else {
+      const device = Math.random().toString(36).slice(2, 8).padEnd(6, "0");
+      const kind = /Android|iPhone|iPad|Mobi/i.test(navigator.userAgent) ? "phone" : "desktop";
+      const has = hasData(data);
+      syncMeta = { device, file: `momo-autosave-${kind}-${device}.json`, clock: has ? { [device]: 1 } : {}, changedAt: "", dirty: has };
+    }
+
+    const reports = readJSON(KEYS.bugReports);
+    bugReports = Array.isArray(reports) ? reports.filter(r => r && typeof r.markdown === "string") : [];
+  }
+
+  // ==========================================================================
+  // UNDO & TOAST
+  // ==========================================================================
+  function undo() {
+    if (!undoStack.length) return;
+    data = JSON.parse(undoStack.pop());
+    save({ undo: false });
+    hideToast();
+    renderAll();
+  }
+
+  // A short message at the bottom, with an Undo button for changes worth one.
+  function toast(text, withUndo) {
+    $("toastText").textContent = text;
+    $("toastUndo").hidden = !withUndo;
+    $("toast").hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, TOAST_MS);
+  }
+  function hideToast() {
+    clearTimeout(toastTimer);
+    $("toast").hidden = true;
+  }
+
+  // ==========================================================================
+  // RENDERING
+  // ==========================================================================
+  function renderAll() {
+    if (press || drag || resize) { renderPending = true; return; } // redrawn once the pointer lets go
+    renderPending = false;
+    const key = shownKey(), list = shownList();
+    renderTabs();
+    renderBank(list, key);
+    renderBoard(list, key);
+    renderGoals(list, key);
+    renderCloseOutControls();
+    renderTestBanner();
+  }
+
+  function renderTabs() {
+    [["this", thisWeekKey()], ["next", nextWeekKey()]].forEach(([v, k]) => {
+      const w = weekOf(k), b = budgetOf(w, k);
+      const [text, cls] = w.closed ? ["closed out ✓", "good"]
+        : b.over.length ? [`${fmtH(sum(b.over.map(o => o.by)))} over`, "bad"]
+        : !w.cards.length ? ["not planned yet", ""]
+        : b.free === 0 ? ["all assigned ✓", "good"]
+        : [`${fmtH(b.free)} left`, ""];
+      $(`tabDate_${v}`).textContent = fmtWeek(k);
+      $(`tabStatus_${v}`).textContent = text;
+      $(`tabStatus_${v}`).className = `vb-status ${cls}`;
+    });
+    const fixed = sum(data.baseline.cards.map(c => c.hours));
+    $("tabDate_base").textContent = "your default week";
+    $("tabStatus_base").textContent = fixed ? `${fmtH(fixed)} fixed` : "not set up yet";
+    $("tabStatus_base").className = "vb-status";
+    document.querySelectorAll("#viewToggle .mode-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.view === view));
+  }
+
+  function renderBank(list, key) {
+    const isBase = key === "base", locked = !isBase && list.closed;
+    const b = budgetOf(list, key);
+    const onDays = list.cards.some(c => c.day !== null);
+    // Like YNAB's Ready to Assign: green while there are hours to give a job. An
+    // overbooked day doesn't change the number; it gets its own red line below.
+    $("bank").classList.toggle("pos", !locked && b.free > 0);
+    $("bankLabel").textContent = isBase ? "Baseline" : locked ? "Closed out" : "To Be Budgeted";
+    $("bankLine").hidden = locked;
+    $("bankNum").textContent = fmtH(b.free);
+    $("bankOf").textContent = isBase ? `left for everything else · ${fmtH(sum(b.totals))} fixed`
+      : b.first ? `of ${b.pool}h left this week` : `of ${b.pool}h`;
+
+    let msg, cls = "";
+    if (locked) {
+      msg = "This week is closed out ✓ — its goal hours are logged and the rest is let go.";
+      cls = "good";
+    } else if (b.over.length) {
+      cls = "bad";
+      msg = b.over.length === 1
+        ? `${DAY_LONG[b.over[0].d]} is overbooked by ${fmtH(b.over[0].by)} — move or trim a card to balance it.`
+        : `Overbooked: ${b.over.map(o => `${DAY_NAMES[o.d]} by ${fmtH(o.by)}`).join(", ")} — move or trim cards to balance them.`;
+    } else if (isBase) {
+      msg = onDays ? "The hours that come around every week. Load them into any week with one click; what's left is yours to budget."
+        : "Your default week: sleep, work, meals — the hours that come around every week. Build it once, then load it into any week with one click.";
+    } else if (!list.cards.length) {
+      msg = data.baseline.cards.length ? "Start with your baseline: one click funds the fixed hours, then give the rest a job."
+        : "Start by setting up your baseline: the fixed hours of a typical week.";
+    } else if (b.free === 0) {
+      msg = "Every hour has a job ✓";
+      cls = "good";
+    } else {
+      msg = "Give every remaining hour a job — even if the job is rest.";
+    }
+    $("bankMsg").textContent = msg;
+    $("bankMsg").className = `bank-msg ${cls}`;
+
+    const hasBaseline = data.baseline.cards.length > 0, baseLoaded = list.cards.some(c => c.base);
+    $("loadBaselineBtn").hidden = isBase || locked || !hasBaseline;
+    $("loadBaselineBtn").textContent = baseLoaded ? "Reload baseline" : "Load baseline";
+    $("loadBaselineBtn").classList.toggle("secondary", baseLoaded);
+    $("gotoBaselineBtn").hidden = isBase || locked || hasBaseline;
+    $("sampleBaselineBtn").hidden = !isBase || list.cards.length > 0;
+    $("fillGapsBtn").hidden = isBase || locked || !onDays || b.free === 0;
+    $("reopenBtn").hidden = !locked;
+    $("clearBtn").hidden = locked || !list.cards.length;
+    $("clearBtn").textContent = isBase ? "Clear baseline" : "Clear week";
+
+    // The parking lot holds cards without a day; their hours aren't budgeted yet.
+    $("parking").hidden = isBase || locked;
+    const parked = list.cards.filter(c => c.day === null);
+    $("parkingCards").innerHTML = parked.length ? parked.map(cardHTML).join("")
+      : `<span class="parking-empty">Drop a card here to take it off its day.</span>`;
+    $("parkedTotal").textContent = !parked.length ? "" : `${fmtH(b.parked)}${b.parked > b.free ? ` · only ${fmtH(b.free)} free` : ""}`;
+  }
+
+  function cardHTML(c) {
+    const g = goalById(c.goalId);
+    const label = `${c.title}, ${fmtH(c.hours)}${g ? `, goal: ${g.name}` : ""}`;
+    return `<div class="card${g ? " is-goal" : ""}" data-id="${esc(c.id)}" role="button" tabindex="0" aria-label="${esc(label)}" title="${esc(label)}" style="--h:${c.hours};--c:var(--c${g ? g.color : c.color})">` +
+      `<span class="card-title">${esc(c.title)}</span><span class="card-hours">${fmtH(c.hours)}</span>` +
+      `${c.day === null ? "" : `<span class="grip" aria-hidden="true"></span>`}</div>`;
+  }
+
+  // The dashed block under a day's cards: its free hours (sized to match), or
+  // a slim add button once the day is full, or how far over it is.
+  function freeHTML(d, free) {
+    if (free > 0) return `<button type="button" class="free" data-add-day="${d}" style="--h:${free}">+ ${fmtH(free)} free</button>`;
+    if (free === 0) return `<button type="button" class="free slim" data-add-day="${d}" aria-label="Add a card to ${DAY_LONG[d]}">+</button>`;
+    return `<button type="button" class="free slim over" data-add-day="${d}">${fmtH(-free)} over</button>`;
+  }
+
+  function renderBoard(list, key) {
+    const isBase = key === "base", locked = !isBase && list.closed;
+    const today = key === thisWeekKey() ? dayIndex(todayStr()) : -1;
+    const { totals } = budgetOf(list, key);
+    $("board").classList.toggle("locked", locked);
+    $("board").innerHTML = DAYS.map(d => {
+      const total = totals[d];
+      const cls = ["col", total > DAY_HOURS ? "over" : total === DAY_HOURS ? "full" : "", d === today ? "today" : "", d < today ? "past" : ""].filter(Boolean).join(" ");
+      const date = isBase ? "" : d === today ? "Today" : fmtShort(addDays(key, d));
+      return `<div class="${cls}" data-day="${d}" data-total="${total}">
+        <div class="col-head">
+          <div class="col-day"><span>${DAY_NAMES[d]}</span><span class="col-date">${date}</span></div>
+          <div class="col-total">Total: <span class="col-sum">${fmtNum(total)}</span>/24</div>
+          <div class="col-bar"><span style="width:${Math.min(100, total / DAY_HOURS * 100)}%"></span></div>
+        </div>
+        <div class="col-body">${list.cards.filter(c => c.day === d).map(cardHTML).join("")}${locked ? "" : freeHTML(d, DAY_HOURS - total)}</div>
+      </div>`;
+    }).join("");
+  }
+
+  function renderGoals(list, key) {
+    const goals = liveGoals().sort((a, b) => isReached(a) - isReached(b)); // reached ones last
+    $("goalsEmpty").hidden = goals.length > 0;
+    const label = key === "base" ? "Baseline" : view === "this" ? "This week" : "Next week";
+    const needKey = key === "base" ? nextWeekKey() : key; // the baseline is judged by next week's need
+    const openWeeks = Object.values(data.weeks).filter(w => !w.closed);
+    $("goalsList").innerHTML = goals.map(g => {
+      const done = goalDone(g), planned = plannedFor(list, g.id);
+      // The bar: solid for hours done, lighter for hours planned in weeks not closed out yet.
+      const pending = sum(openWeeks.map(w => plannedFor(w, g.id)));
+      const donePct = Math.min(100, done / g.target * 100);
+      const planPct = Math.max(0, Math.min(100 - donePct, pending / g.target * 100));
+      let meta, badge;
+      if (isReached(g)) {
+        meta = `${fmtH(done)} done`;
+        badge = `<span class="badge reached">Reached</span>`;
+      } else {
+        meta = `${fmtH(g.target - done)} to go`;
+        const need = weeklyNeed(g, needKey);
+        if (need === null) {
+          badge = `<span class="badge plain">${label}: ${fmtH(planned)}</span>`;
+        } else {
+          meta += weeksLeft(g, needKey) > 0 ? ` · needs ${fmtH(need)}/wk to finish by ${fmtDate(g.due)}` : ` · the finish-by date (${fmtDate(g.due)}) has passed`;
+          badge = planned >= need
+            ? `<span class="badge funded">${label}: ${fmtH(planned)} · Funded</span>`
+            : `<span class="badge under">${label}: ${fmtH(planned)} · ${fmtH(need - planned)} short</span>`;
+        }
+      }
+      return `<div class="goal" data-goal-id="${esc(g.id)}" role="button" tabindex="0" style="--c:var(--c${g.color})">
+        <div class="goal-top"><span class="goal-dot"></span><span class="goal-name">${esc(g.name)}</span><span class="goal-nums">${fmtNum(done)} / ${fmtNum(g.target)}h</span></div>
+        <div class="goal-bar"><span class="done" style="width:${donePct}%"></span><span class="planned" style="width:${planPct}%"></span></div>
+        <div class="goal-bottom"><span class="goal-meta">${meta}</span>${badge}</div>
+      </div>`;
+    }).join("");
+  }
+
+  function renderTestBanner() {
+    $("testBanner").hidden = !testMode;
+    if (testMode) $("testBannerText").textContent = `Test mode: Momo thinks today is ${fmtDate(todayStr(), { weekday: "long", month: "short", day: "numeric", year: "numeric" })}. Nothing is being saved or synced — reload to go back.`;
+  }
+
+  // ==========================================================================
+  // DRAG & DROP
+  // ==========================================================================
+  // Pointer Events cover mouse, touch and pen alike. Cards can be reordered
+  // within a day, moved between days, or dropped into the parking lot. While
+  // dragging, the day under the pointer previews its new total and turns red if
+  // the card would push it past 24 hours.
+  function onBoardPointerDown(e) {
+    if (press || drag || resize || e.button !== 0 || isLocked()) return;
+    const cardEl = e.target.closest(".card");
+    if (!cardEl) return;
+    if (e.target.classList.contains("grip")) return startResize(e, cardEl);
+    if (e.pointerType === "mouse") e.preventDefault(); // no text selection or native drag
+    press = { id: cardEl.dataset.id, el: cardEl, pointerId: e.pointerId, type: e.pointerType, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, timer: 0 };
+    if (e.pointerType !== "mouse") press.timer = setTimeout(() => { if (press) startDrag(); }, TOUCH_HOLD_MS);
+  }
+
+  function onPointerMove(e) {
+    if (drag) {
+      if (e.pointerId !== drag.pointerId) return;
+      drag.x = e.clientX;
+      drag.y = e.clientY;
+      moveGhost();
+      findTarget();
+    } else if (resize) {
+      if (e.pointerId !== resize.pointerId) return;
+      resize.y = e.clientY;
+      applyResize();
+    } else if (press && e.pointerId === press.pointerId) {
+      press.x = e.clientX;
+      press.y = e.clientY;
+      const dist = Math.hypot(press.x - press.x0, press.y - press.y0);
+      if (press.type === "mouse") { if (dist > DRAG_START_PX) startDrag(); }
+      else if (dist > TOUCH_SLOP_PX) cancelPress(); // moved before the hold: it's a scroll
+    }
+  }
+
+  function onPointerUp(e) {
+    if (drag && e.pointerId === drag.pointerId) endDrag(true);
+    else if (resize && e.pointerId === resize.pointerId) endResize(true);
+    else cancelPress();
+  }
+
+  function onPointerCancel(e) {
+    if (drag && e.pointerId === drag.pointerId) endDrag(false);
+    else if (resize && e.pointerId === resize.pointerId) endResize(false);
+    else cancelPress();
+  }
+
+  function cancelPress() {
+    if (!press) return;
+    clearTimeout(press.timer);
+    press = null;
+    if (renderPending) setTimeout(renderAll, 0); // after the tap's click has opened its card
+  }
+
+  // The click that follows a drag or resize isn't a tap on the card.
+  function swallowClick() {
+    suppressClick = true;
+    setTimeout(() => { suppressClick = false; }, 0);
+  }
+
+  function startDrag() {
+    const p = press;
+    press = null;
+    clearTimeout(p.timer);
+    const rect = p.el.getBoundingClientRect();
+    const ghost = p.el.cloneNode(true);
+    ghost.classList.add("ghost");
+    ghost.removeAttribute("tabindex");
+    ghost.style.width = `${rect.width}px`;
+    ghost.style.height = `${rect.height}px`;
+    document.body.appendChild(ghost);
+    drag = { id: p.id, key: shownKey(), el: p.el, ghost, pointerId: p.pointerId, offX: p.x0 - rect.left, offY: p.y0 - rect.top, x: p.x, y: p.y, target: null, raf: 0 };
+    p.el.classList.add("dragging");
+    document.body.classList.add("is-dragging");
+    try { p.el.setPointerCapture(p.pointerId); } catch (err) { /* the pointer is already gone */ }
+    if (p.type !== "mouse" && navigator.vibrate) navigator.vibrate(8);
+    moveGhost();
+    findTarget();
+    drag.raf = requestAnimationFrame(autoScroll);
+  }
+
+  function moveGhost() {
+    drag.ghost.style.transform = `translate(${drag.x - drag.offX}px, ${drag.y - drag.offY}px) rotate(1.5deg)`;
+  }
+
+  // Works out where the card would land: a spot in a day, a card it would merge
+  // into, or the parking lot.
+  function findTarget() {
+    const card = readList(drag.key).cards.find(c => c.id === drag.id);
+    const el = document.elementFromPoint(drag.x, drag.y);
+    const col = el && el.closest("#board .col");
+    const park = !col && el && el.closest("#parking");
+    let t = null;
+    if (card && col) {
+      const day = +col.dataset.day;
+      const others = [...col.querySelectorAll(".col-body .card")].filter(c => c !== drag.el);
+      const before = others.find(c => { const r = c.getBoundingClientRect(); return drag.y < r.top + r.height / 2; }) || null;
+      t = { day, col, before, into: card.day !== day ? mergeTarget(readList(drag.key), card, day) : null };
+    } else if (card && park) {
+      t = { day: null, park: true };
+    }
+    paintTarget(t, card);
+    drag.target = t;
+  }
+
+  function paintTarget(t, card) {
+    const prev = drag.target;
+    if (prev && prev.col && (!t || t.col !== prev.col)) resetColPreview(prev.col);
+    document.querySelectorAll(".card.merge-target").forEach(el => el.classList.remove("merge-target"));
+    $("parking").classList.toggle("drop-target", !!(t && t.park));
+    if (!t || !t.col) return hideDropLine();
+    const total = +t.col.dataset.total + (card.day === t.day ? 0 : card.hours);
+    t.col.classList.add("drop-target");
+    t.col.classList.toggle("preview-over", total > DAY_HOURS);
+    t.col.querySelector(".col-sum").textContent = fmtNum(total);
+    t.col.querySelector(".col-bar span").style.width = `${Math.min(100, total / DAY_HOURS * 100)}%`;
+    if (t.into) {
+      hideDropLine();
+      const intoEl = [...t.col.querySelectorAll(".card")].find(el => el.dataset.id === t.into.id);
+      if (intoEl) intoEl.classList.add("merge-target");
+    } else {
+      placeDropLine(t.col, t.before);
+    }
+  }
+
+  function resetColPreview(col) {
+    const total = +col.dataset.total;
+    col.classList.remove("drop-target", "preview-over");
+    col.querySelector(".col-sum").textContent = fmtNum(total);
+    col.querySelector(".col-bar span").style.width = `${Math.min(100, total / DAY_HOURS * 100)}%`;
+  }
+
+  function placeDropLine(col, before) {
+    const body = col.querySelector(".col-body").getBoundingClientRect();
+    let y;
+    if (before) {
+      y = before.getBoundingClientRect().top - 3.5;
+    } else {
+      const cards = [...col.querySelectorAll(".col-body .card")].filter(c => c !== drag.el);
+      y = cards.length ? cards[cards.length - 1].getBoundingClientRect().bottom + 0.5 : body.top + 3;
+    }
+    Object.assign($("dropLine").style, { display: "block", left: `${body.left + 6}px`, width: `${body.width - 12}px`, top: `${y}px` });
+  }
+  const hideDropLine = () => { $("dropLine").style.display = "none"; };
+
+  // Scrolls the page (and the board, on narrow screens) while the pointer is
+  // near an edge during a drag or resize.
+  function autoScroll() {
+    const p = drag || resize;
+    if (!p) return;
+    const wrap = $("boardWrap"), y0 = window.scrollY, x0 = wrap.scrollLeft;
+    const vh = window.innerHeight;
+    if (p.y < EDGE_PX) window.scrollBy(0, -Math.ceil((EDGE_PX - p.y) / 3));
+    else if (p.y > vh - EDGE_PX) window.scrollBy(0, Math.ceil((p.y - vh + EDGE_PX) / 3));
+    if (drag) {
+      const r = wrap.getBoundingClientRect();
+      if (p.y > r.top && p.y < r.bottom) {
+        if (p.x < r.left + EDGE_PX) wrap.scrollLeft -= Math.ceil((r.left + EDGE_PX - p.x) / 3);
+        else if (p.x > r.right - EDGE_PX) wrap.scrollLeft += Math.ceil((p.x - r.right + EDGE_PX) / 3);
+      }
+    }
+    if (window.scrollY !== y0 || wrap.scrollLeft !== x0) {
+      if (drag) findTarget();
+      else applyResize();
+    }
+    p.raf = requestAnimationFrame(autoScroll);
+  }
+
+  function endDrag(commit) {
+    const d = drag;
+    drag = null;
+    cancelAnimationFrame(d.raf);
+    d.ghost.remove();
+    hideDropLine();
+    d.el.classList.remove("dragging");
+    document.body.classList.remove("is-dragging");
+    $("parking").classList.remove("drop-target");
+    swallowClick();
+    let into = null, changed = false;
+    if (commit && d.target) {
+      into = moveCard(listFor(d.key), d.id, d.target.day, d.target.before ? d.target.before.dataset.id : null);
+      changed = save();
+    }
+    renderAll();
+    if (changed && into) toast(`Merged into ${into.title} · ${fmtH(into.hours)}`, true);
+  }
+
+  // Resizing: dragging a card's bottom edge changes its hours in 15-minute steps.
+  function startResize(e, cardEl) {
+    e.preventDefault();
+    const card = shownList().cards.find(c => c.id === cardEl.dataset.id);
+    if (!card) return;
+    resize = { id: card.id, key: shownKey(), el: cardEl, col: cardEl.closest(".col"), pointerId: e.pointerId, y0: e.clientY, scroll0: window.scrollY, h0: card.hours, hours: card.hours, x: e.clientX, y: e.clientY, raf: 0 };
+    cardEl.classList.add("resizing");
+    document.body.classList.add("is-resizing");
+    try { cardEl.setPointerCapture(e.pointerId); } catch (err) { /* the pointer is already gone */ }
+    resize.raf = requestAnimationFrame(autoScroll);
+  }
+
+  function applyResize() {
+    const hourPx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hour")) || 22;
+    const hours = clampHours(resize.h0 + (resize.y - resize.y0 + window.scrollY - resize.scroll0) / hourPx);
+    if (hours === resize.hours) return;
+    resize.hours = hours;
+    resize.el.style.setProperty("--h", hours);
+    resize.el.querySelector(".card-hours").textContent = fmtH(hours);
+    const total = +resize.col.dataset.total - resize.h0 + hours;
+    resize.col.querySelector(".col-sum").textContent = fmtNum(total);
+    resize.col.querySelector(".col-bar span").style.width = `${Math.min(100, total / DAY_HOURS * 100)}%`;
+    resize.col.classList.toggle("preview-over", total > DAY_HOURS);
+  }
+
+  function endResize(commit) {
+    const r = resize;
+    resize = null;
+    cancelAnimationFrame(r.raf);
+    document.body.classList.remove("is-resizing");
+    swallowClick();
+    if (commit && r.hours !== r.h0) {
+      const card = listFor(r.key).cards.find(c => c.id === r.id);
+      if (card) {
+        card.hours = r.hours;
+        save();
+      }
+    }
+    renderAll();
+  }
+
+  function onBoardClick(e) {
+    if (suppressClick || isLocked()) return;
+    const free = e.target.closest(".free");
+    if (free) return openCardEditor(null, { day: +free.dataset.addDay });
+    const cardEl = e.target.closest(".card");
+    if (cardEl) openCardEditor(cardEl.dataset.id);
+  }
+
+  function onCardKey(e) {
+    if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("card") && !isLocked()) {
+      e.preventDefault();
+      openCardEditor(e.target.dataset.id);
+    }
+  }
+
+  // ==========================================================================
+  // CARD & GOAL EDITORS
+  // ==========================================================================
+  const OVERLAYS = ["cardOverlay", "goalOverlay", "closeOutOverlay", "bugReportOverlay"];
+  const openOverlay = id => $(id).classList.add("open");
+  const closeOverlay = id => $(id).classList.remove("open");
+  const topOverlay = () => OVERLAYS.filter(id => $(id).classList.contains("open")).pop() || null;
+  // Esc, the × button or a backdrop click: editors just close, a close-out waits for later.
+  function dismissOverlay(id) {
+    if (id === "closeOutOverlay") return closeOutLaterClick();
+    closeOverlay(id);
+    if (id === "cardOverlay") editing = null;
+    if (id === "goalOverlay") editingGoal = null;
+  }
+
+  // Titles used before, for the title field's suggestions.
+  function titleSuggestions() {
+    const titles = new Map([[FREE_TIME.toLowerCase(), FREE_TIME]]);
+    [data.baseline, weekOf(thisWeekKey()), weekOf(nextWeekKey())].forEach(list => list.cards.forEach(c => {
+      if (!c.goalId) titles.set(c.title.toLowerCase(), c.title);
+    }));
+    return [...titles.values()].sort((a, b) => a.localeCompare(b));
+  }
+
+  // Opens the card editor for a card, or for a new card on a day (null = parked).
+  // A new card can go on several days at once; an existing one moves to one day.
+  function openCardEditor(id, { day = 0 } = {}) {
+    if (isLocked()) return;
+    const key = shownKey(), list = readList(key);
+    const card = id ? list.cards.find(c => c.id === id) : null;
+    if (id && !card) return;
+    const free = day === null ? 0 : DAY_HOURS - dayTotal(list, day);
+    editing = { key, id: card ? card.id : null, multi: !card, days: new Set([card ? card.day : day]), color: card ? card.color : 0, colorPicked: !!card, lastGoalId: card ? card.goalId : null };
+    $("cardModalTitle").textContent = card ? "Edit card" : "New card";
+    $("cardTitle").value = card ? card.title : "";
+    $("cardHours").value = fmtNum(card ? card.hours : free > 0 && free < 1 ? free : 1);
+    const goals = liveGoals().filter(g => !isReached(g) || (card && card.goalId === g.id));
+    $("cardGoal").innerHTML = `<option value="">None</option>` + goals.map(g => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join("");
+    $("cardGoal").value = card && goals.some(g => g.id === card.goalId) ? card.goalId : "";
+    $("cardGoalField").hidden = !goals.length;
+    $("cardColorField").hidden = !!$("cardGoal").value;
+    $("cardDaysLabel").textContent = card ? "Day" : "Days — pick several to add it to each";
+    $("cardDeleteBtn").hidden = !card;
+    $("titleSuggestions").innerHTML = titleSuggestions().map(t => `<option value="${esc(t)}"></option>`).join("");
+    renderDayPills();
+    renderSwatches("cardColors", editing.color);
+    openOverlay("cardOverlay");
+    $("cardTitle").focus();
+  }
+
+  function renderDayPills() {
+    const pills = DAYS.map(d => [d, DAY_NAMES[d]]);
+    if (editing.key !== "base") pills.push([null, "Parked"]);
+    $("cardDays").innerHTML = pills.map(([d, name]) =>
+      `<button type="button" class="day-pill${editing.days.has(d) ? " active" : ""}" data-day="${d === null ? "" : d}">${name}</button>`).join("");
+  }
+
+  function onDayPill(e) {
+    const btn = e.target.closest(".day-pill");
+    if (!btn || !editing) return;
+    const d = btn.dataset.day === "" ? null : +btn.dataset.day;
+    if (!editing.multi) {
+      editing.days = new Set([d]);
+    } else if (editing.days.has(d)) {
+      if (editing.days.size > 1) editing.days.delete(d); // always at least one
+    } else if (d === null) {
+      editing.days = new Set([null]); // parked goes on its own
+    } else {
+      editing.days.delete(null);
+      editing.days.add(d);
+    }
+    renderDayPills();
+  }
+
+  function renderSwatches(id, active) {
+    $(id).innerHTML = Array.from({ length: PALETTE }, (_, i) =>
+      `<button type="button" class="swatch${i === active ? " active" : ""}" data-color="${i}" style="--c:var(--c${i})" aria-label="Colour ${i + 1}"></button>`).join("");
+  }
+
+  // Until a colour is picked, a new card takes the one its title already has.
+  function onCardTitleInput() {
+    if (!editing || editing.colorPicked) return;
+    const t = $("cardTitle").value.trim();
+    if (!t) return;
+    editing.color = colorFor(t);
+    renderSwatches("cardColors", editing.color);
+  }
+
+  // Picking a goal names the card after it (unless it has a name of its own).
+  function onCardGoalChange() {
+    const g = goalById($("cardGoal").value), prev = goalById(editing.lastGoalId);
+    const t = $("cardTitle").value.trim();
+    if (g && (!t || (prev && t === prev.name))) $("cardTitle").value = g.name;
+    editing.lastGoalId = g ? g.id : null;
+    $("cardColorField").hidden = !!g;
+  }
+
+  // Returns null for an empty field and NaN for one the browser couldn't parse.
+  function readNumber(id) {
+    const el = $(id);
+    if (el.validity.badInput) return NaN;
+    return el.value === "" ? null : parseFloat(el.value);
+  }
+
+  function saveCard() {
+    if (!editing) return;
+    const title = $("cardTitle").value.trim().slice(0, MAX_TITLE);
+    const rawHours = readNumber("cardHours");
+    const goalId = goalById($("cardGoal").value) ? $("cardGoal").value : null;
+    if (!title) { $("cardTitle").focus(); return alert("Give the card a name."); }
+    if (!isPos(rawHours)) { $("cardHours").focus(); return alert("Enter how many hours, e.g. 1.5 (in 15-minute steps)."); }
+    const hours = clampHours(rawHours), list = listFor(editing.key), merged = [];
+    if (editing.id) {
+      const card = list.cards.find(c => c.id === editing.id);
+      if (!card) {
+        dismissOverlay("cardOverlay");
+        renderAll();
+        return toast("That card was changed on another device, so nothing was saved.", false);
+      }
+      Object.assign(card, { title, hours, goalId, color: editing.color });
+      const day = [...editing.days][0];
+      const into = day !== card.day ? moveCard(list, card.id, day, null) : settle(list, card);
+      if (into) merged.push(into);
+    } else {
+      [...editing.days].sort((a, b) => a - b).forEach(day => {
+        const card = { id: newId(), title, hours, day, goalId, color: editing.color, base: false };
+        const into = mergeTarget(list, card, day);
+        if (into) {
+          into.hours += hours;
+          merged.push(into);
+        } else {
+          insertCard(list, card, null);
+        }
+      });
+    }
+    dismissOverlay("cardOverlay");
+    save();
+    renderAll();
+    if (merged.length) toast(merged.length === 1 ? `Merged into ${merged[0].title} · ${fmtH(merged[0].hours)}` : `Merged into ${merged.length} matching cards`, true);
+  }
+
+  function deleteCard() {
+    if (!editing) return;
+    const list = listFor(editing.key), card = list.cards.find(c => c.id === editing.id);
+    dismissOverlay("cardOverlay");
+    if (card) {
+      list.cards = list.cards.filter(c => c !== card);
+      save();
+      toast(`Deleted ${card.title}`, true);
+    }
+    renderAll();
+  }
+
+  const freeGoalColor = () => {
+    const used = new Set(liveGoals().map(g => g.color));
+    const free = GOAL_COLORS.find(c => !used.has(c));
+    return free === undefined ? GOAL_COLORS[liveGoals().length % GOAL_COLORS.length] : free;
+  };
+
+  function openGoalEditor(id) {
+    const g = id ? goalById(id) : null;
+    if (id && !g) return;
+    editingGoal = { id: g ? g.id : null, color: g ? g.color : freeGoalColor() };
+    $("goalModalTitle").textContent = g ? "Edit goal" : "New goal";
+    $("goalName").value = g ? g.name : "";
+    $("goalTarget").value = g ? fmtNum(g.target) : "";
+    $("goalDone").value = g ? fmtNum(goalDone(g)) : "";
+    $("goalDue").value = g ? g.due : "";
+    $("goalDeleteBtn").hidden = !g;
+    renderSwatches("goalColors", editingGoal.color);
+    openOverlay("goalOverlay");
+    $("goalName").focus();
+  }
+
+  function saveGoal() {
+    if (!editingGoal) return;
+    const name = $("goalName").value.trim().slice(0, MAX_TITLE);
+    const target = readNumber("goalTarget"), doneRaw = readNumber("goalDone"), due = $("goalDue").value;
+    const done = doneRaw === null ? 0 : doneRaw;
+    if (!name) { $("goalName").focus(); return alert("Give the goal a name."); }
+    if (!isPos(target)) { $("goalTarget").focus(); return alert("Enter the total hours this goal needs, e.g. 500."); }
+    if (!isNum(done) || done < 0) { $("goalDone").focus(); return alert("Hours done so far can't be negative."); }
+    if (due && !isDate(due)) { $("goalDue").focus(); return alert("That finish-by date isn't valid."); }
+    let g = editingGoal.id ? goalById(editingGoal.id) : null;
+    if (editingGoal.id && !g) {
+      dismissOverlay("goalOverlay");
+      renderAll();
+      return toast("That goal was changed on another device, so nothing was saved.", false);
+    }
+    if (!g) {
+      g = { id: newId(), name, target: 0, start: 0, due: "", color: 0, log: {}, deleted: false, u: 0 };
+      data.goals.push(g);
+    }
+    // "Done so far" sets the starting amount, on top of which close-outs add up.
+    Object.assign(g, { name, target: Math.max(STEP, snap(target)), due: due || "", color: editingGoal.color, start: snap(done) - sum(Object.values(g.log)) });
+    dismissOverlay("goalOverlay");
+    save();
+    renderAll();
+  }
+
+  function deleteGoal() {
+    const g = editingGoal && goalById(editingGoal.id);
+    if (!g || !confirm(`Delete the goal “${g.name}”? Its cards stay on the board as ordinary cards.`)) return;
+    g.deleted = true; // kept as a marker, so sync can't bring it back
+    dismissOverlay("goalOverlay");
+    save();
+    renderAll();
+    toast(`Deleted ${g.name}`, true);
+  }
+
+  // ==========================================================================
+  // BASELINE & QUICK ACTIONS
+  // ==========================================================================
+  // Auto-funding: the baseline's cards go on top of each day, marked as from the
+  // baseline. Loading again swaps those for fresh copies; your own cards stay.
+  function loadBaseline() {
+    const key = viewKey();
+    if (!key || !data.baseline.cards.length) return;
+    const week = ensureWeek(key), reload = week.cards.some(c => c.base);
+    if (reload && !confirm("Reload the baseline? Its cards already in this week are replaced by fresh copies, including any changes you made to them. Cards you added yourself stay.")) return;
+    const fresh = data.baseline.cards.map(c => ({ ...c, id: newId(), goalId: goalById(c.goalId) ? c.goalId : null, base: true }));
+    week.cards = fresh.concat(week.cards.filter(c => !c.base));
+    save();
+    renderAll();
+    const left = budgetOf(week, key).free;
+    toast(reload ? "Baseline reloaded" : `Baseline loaded — ${fmtH(left)} left to budget`, true);
+  }
+
+  // Gives every counted day's free hours the job "Free time" — the deliberate
+  // buffer you shrink when something unexpected comes up.
+  function fillGaps() {
+    const key = viewKey();
+    if (!key) return;
+    const week = ensureWeek(key), b = budgetOf(week, key);
+    let added = 0;
+    b.days.forEach(d => {
+      const free = DAY_HOURS - b.totals[d];
+      if (free <= 0) return;
+      const existing = week.cards.find(c => c.day === d && !c.goalId && c.title.toLowerCase() === FREE_TIME.toLowerCase());
+      if (existing) existing.hours += free;
+      else insertCard(week, { id: newId(), title: FREE_TIME, hours: free, day: d, goalId: null, color: colorFor(FREE_TIME), base: false }, null);
+      added += free;
+    });
+    if (!added) return;
+    save();
+    renderAll();
+    toast(`${fmtH(added)} of Free time added`, true);
+  }
+
+  function clearBoard() {
+    const key = shownKey(), list = readList(key);
+    if (!list.cards.length || isLocked()) return;
+    if (!confirm(key === "base" ? "Clear the whole baseline?" : `Remove all ${list.cards.length} cards from this week?`)) return;
+    listFor(key).cards = [];
+    save();
+    renderAll();
+    toast(key === "base" ? "Baseline cleared" : "Week cleared", true);
+  }
+
+  function startSampleBaseline() {
+    data.baseline.cards = DAYS.flatMap(d => SAMPLE_BASELINE.filter(s => s.days.includes(d))
+      .map(s => ({ id: newId(), title: s.title, hours: s.hours, day: d, goalId: null, color: s.color, base: false })));
+    save();
+    renderAll();
+  }
+
+  // ==========================================================================
+  // WEEKLY CLOSE-OUT
+  // ==========================================================================
+  // Time can't be saved, so nothing rolls over — except goal hours. Once a week
+  // is over, its goal cards are reviewed by exception: Momo assumes the planned
+  // work happened, you enter what didn't, and the rest of the week is let go.
+  const pendingCloseOuts = () => Object.keys(data.weeks).filter(k => k < thisWeekKey() && !data.weeks[k].closed).sort();
+
+  // The goal work scheduled in a week: [{ goalId, name, color, hours, days: [[day, hours]] }].
+  function goalWork(list) {
+    const byGoal = new Map();
+    list.cards.forEach(c => {
+      const g = c.day === null ? null : goalById(c.goalId);
+      if (!g) return;
+      const w = byGoal.get(g.id) || { goalId: g.id, name: g.name, color: g.color, hours: 0, byDay: {} };
+      w.hours += c.hours;
+      w.byDay[c.day] = (w.byDay[c.day] || 0) + c.hours;
+      byGoal.set(g.id, w);
+    });
+    const order = id => data.goals.findIndex(g => g.id === id); // same order as the goals list
+    return [...byGoal.values()].sort((a, b) => order(a.goalId) - order(b.goalId))
+      .map(({ byDay, ...w }) => ({ ...w, days: Object.keys(byDay).sort().map(d => [+d, byDay[d]]) }));
+  }
+  const reviewWeeks = () => pendingCloseOuts().filter(k => goalWork(data.weeks[k]).length);
+
+  // Closes finished weeks without goal work quietly, then opens the oldest
+  // close-out due (unless it's been put off, or something else is on screen).
+  function checkCloseOuts() {
+    const quiet = pendingCloseOuts().filter(k => !goalWork(data.weeks[k]).length);
+    if (quiet.length) {
+      quiet.forEach(k => { data.weeks[k].closed = true; });
+      save({ undo: false });
+    }
+    if (closing && (!data.weeks[closing.key] || data.weeks[closing.key].closed)) { // closed on another device
+      closing = null;
+      closeOverlay("closeOutOverlay");
+    }
+    const due = reviewWeeks();
+    if (!closing && due.length && !closeOutLater && !topOverlay() && !drag && !resize) openCloseOut(due[0]);
+    renderCloseOutControls();
+  }
+
+  function renderCloseOutControls() {
+    const due = reviewWeeks();
+    $("closeOutBanner").hidden = !due.length || !!closing;
+    $("closeOutBannerText").textContent = due.length > 1
+      ? `${due.length} past weeks are ready to close out, starting with ${fmtWeek(due[0])}.`
+      : due.length ? `The week of ${fmtWeek(due[0])} is ready to close out.` : "";
+    // On Sundays this week can be closed out early, to review and plan in one sitting.
+    const week = weekOf(thisWeekKey());
+    $("closeOutNowBtn").hidden = view === "base" || dayIndex(todayStr()) !== 6 || week.closed || !week.cards.length;
+  }
+
+  function openCloseOut(key) {
+    const week = data.weeks[key];
+    if (!week || week.closed) return;
+    closing = { key, rows: goalWork(week).map(w => ({ ...w, missed: 0 })) };
+    $("closeOutTitle").textContent = key === thisWeekKey() ? `Close out this week (${fmtWeek(key)})` : `Close out ${fmtWeek(key)}`;
+    $("closeOutRows").innerHTML = closing.rows.map((r, i) => `<div class="co-row" style="--c:var(--c${r.color})">
+      <div>
+        <div class="co-name"><span class="goal-dot"></span>${esc(r.name)}</div>
+        <div class="co-detail">Planned ${fmtH(r.hours)} · ${r.days.map(([d, h]) => `${DAY_NAMES[d]} ${fmtH(h)}`).join(" · ")}</div>
+      </div>
+      <div class="co-missed">
+        <label for="coMissed${i}">Didn't do</label>
+        <div class="stepper">
+          <button type="button" class="step-btn" data-step="-1" aria-label="Less">&minus;</button>
+          <input type="number" id="coMissed${i}" data-row="${i}" value="0" min="0" max="${r.hours}" step="0.25">
+          <button type="button" class="step-btn" data-step="1" aria-label="More">+</button>
+        </div>
+      </div>
+      <div class="co-result" id="coResult${i}"></div>
+    </div>`).join("");
+    closing.rows.forEach((r, i) => updateCloseOutResult(i));
+    openOverlay("closeOutOverlay");
+    renderCloseOutControls();
+  }
+
+  // "288h → 280h to go": the goal before and after this week's hours count.
+  function updateCloseOutResult(i) {
+    const r = closing.rows[i], g = goalById(r.goalId);
+    if (!g) return;
+    const before = Math.max(0, g.target - (goalDone(g) - (g.log[closing.key] || 0)));
+    const after = Math.max(0, before - (r.hours - r.missed));
+    $(`coResult${i}`).innerHTML = after === 0 && before > 0
+      ? `${fmtH(before)} to go → <strong>goal reached 🎉</strong>`
+      : `${fmtH(before)} → <strong>${fmtH(after)}</strong> to go`;
+  }
+
+  function onCloseOutInput(e) {
+    const i = +e.target.dataset.row, r = closing && closing.rows[i];
+    if (!r) return;
+    const v = parseFloat(e.target.value);
+    r.missed = isNum(v) ? Math.min(r.hours, Math.max(0, snap(v))) : 0;
+    updateCloseOutResult(i);
+  }
+
+  function onCloseOutChange(e) {
+    const r = closing && closing.rows[+e.target.dataset.row];
+    if (r) e.target.value = fmtNum(r.missed);
+  }
+
+  function confirmCloseOut() {
+    if (!closing) return;
+    const { key, rows } = closing, week = data.weeks[key];
+    closing = null;
+    closeOverlay("closeOutOverlay");
+    if (week && !week.closed) {
+      const reached = [];
+      rows.forEach(r => {
+        const g = goalById(r.goalId);
+        if (!g) return;
+        const was = isReached(g), worked = snap(Math.max(0, r.hours - r.missed));
+        if (worked > 0) g.log[key] = worked;
+        else delete g.log[key];
+        if (!was && isReached(g)) reached.push(g.name);
+      });
+      week.closed = true;
+      save();
+      toast(reached.length ? `Closed out — goal reached: ${reached.join(", ")} 🎉` : `Week of ${fmtWeek(key)} closed out`, true);
+    }
+    renderAll();
+    checkCloseOuts();
+  }
+
+  function closeOutLaterClick() {
+    closing = null;
+    closeOutLater = true;
+    closeOverlay("closeOutOverlay");
+    renderAll();
+  }
+
+  function closeOutEarly() {
+    const key = thisWeekKey(), week = weekOf(key);
+    if (week.closed) return;
+    if (goalWork(week).length) return openCloseOut(key);
+    ensureWeek(key).closed = true;
+    save();
+    renderAll();
+    toast("This week is closed out — there was no goal work to review", true);
+  }
+
+  // Takes a closed week's goal hours back off and opens it again.
+  function reopenWeek() {
+    const key = viewKey(), week = key && data.weeks[key];
+    if (!week || !week.closed) return;
+    week.closed = false;
+    data.goals.forEach(g => { delete g.log[key]; });
+    save();
+    closeOutLater = false;
+    renderAll();
+    checkCloseOuts();
+    toast("Week reopened — its goal hours were taken back off", true);
+  }
+
+  // The app can stay open past midnight or into a new week (a phone tab, say):
+  // redraw for the new day and bring up any close-out that's now due.
+  function checkRollover() {
+    const today = todayStr();
+    if (today === knownToday) return;
+    if (weekKeyOf(today) !== weekKeyOf(knownToday || today)) closeOutLater = false;
+    knownToday = today;
+    renderAll();
+    checkCloseOuts();
+  }
+
+  // ==========================================================================
+  // BUG REPORTS & DEVELOPER MODE
+  // ==========================================================================
+  // Markdown meant to be pasted into Claude Code: the description, then what's
+  // needed to diagnose it. Leaves out every card title and goal name.
+  function buildBugReportText(description) {
+    const tk = thisWeekKey(), nk = nextWeekKey(), b = budgetOf(shownList(), shownKey());
+    return [
+      "# Bug Report — Momo", "",
+      `**Reported:** ${new Date().toISOString()}`,
+      `**App Version:** ${APP_VERSION}`,
+      `**Data Schema Version:** ${DATA_SCHEMA_VERSION}`, "",
+      "## Description", description || "_(no description provided)_", "",
+      "## Environment",
+      `- Platform: ${navigator.platform || "unknown"}`,
+      `- User agent: ${navigator.userAgent}`,
+      `- Viewport: ${window.innerWidth}x${window.innerHeight}`,
+      `- Theme: ${document.documentElement.dataset.theme}`,
+      `- Language: ${navigator.language}`,
+      `- Online: ${navigator.onLine}`, "",
+      "## App State",
+      `- View: ${view}`,
+      `- App date: ${todayStr()}${dayOffset ? ` (time travel +${dayOffset} days, test mode)` : ""}`,
+      `- Weeks stored: ${Object.keys(data.weeks).length} (${Object.values(data.weeks).filter(w => w.closed).length} closed)`,
+      `- Cards this week / next week / baseline: ${weekOf(tk).cards.length} / ${weekOf(nk).cards.length} / ${data.baseline.cards.length}`,
+      `- Goals: ${liveGoals().length} (+${data.goals.length - liveGoals().length} deleted)`,
+      `- On screen: ${fmtH(b.free)} to be budgeted, ${b.over.length} overbooked day(s), ${fmtH(b.parked)} parked`,
+      `- Weeks waiting for close-out: ${reviewWeeks().length}`,
+      `- Undo steps: ${undoStack.length}`,
+      `- Unsaved changes since last export: ${unsavedChanges}`,
+      `- Folder sync: ${syncSupported ? syncState : "unsupported"}`,
+      `- Dev mode: ${devModeOn}`, "",
+      "## Recent Console Activity",
+      ...(debugLog.length ? ["```", ...debugLog.map(l => `[${l.time}] ${l.level.toUpperCase()}: ${l.message}`), "```"] : ["_(none captured this session)_"]), "",
+      "## Recent Changelog",
+      ...CHANGELOG.slice(0, 3).map(c => `- v${c.version} (${c.date}): ${c.changes.join(" ")}`)
+    ].join("\n");
+  }
+
+  // Falls back to a hidden textarea + execCommand where the Clipboard API is missing.
+  async function copyTextToClipboard(text) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        const copied = document.execCommand("copy");
+        ta.remove();
+        return copied;
+      }
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function setBugReportStatus(message, cls) {
+    $("bugReportStatus").textContent = message;
+    $("bugReportStatus").className = `modal-status ${cls}`;
+  }
+
+  function openBugReportModal() {
+    $("bugReportText").value = "";
+    setBugReportStatus("", "");
+    openOverlay("bugReportOverlay");
+    $("bugReportText").focus();
+  }
+
+  // Saves the report to the local log (kept until cleared in Developer Mode)
+  // and copies it to the clipboard as a convenience.
+  async function submitBugReport() {
+    const description = $("bugReportText").value.trim();
+    const markdown = buildBugReportText(description);
+    bugReports = bugReports.concat({ id: Date.now(), timestamp: new Date().toISOString(), description, markdown }).slice(-BUG_REPORTS_MAX);
+    storageSet(KEYS.bugReports, JSON.stringify(bugReports));
+    $("devBugReportCount").textContent = bugReports.length;
+    const logged = `${bugReports.length} report${bugReports.length === 1 ? "" : "s"} logged`;
+    const copied = await copyTextToClipboard(markdown);
+    setBugReportStatus(copied
+      ? `Saved and copied to clipboard (${logged} — manage them from Developer Mode).`
+      : `Saved (${logged}), but couldn't copy automatically — export it from Developer Mode instead.`, copied ? "good" : "bad");
+    $("bugReportText").value = "";
+  }
+
+  const combinedBugReports = () => bugReports.map(r => r.markdown).join("\n\n---\n\n");
+
+  function renderDevToday() {
+    $("devToday").textContent = fmtDate(todayStr(), { weekday: "short", month: "short", day: "numeric" });
+  }
+
+  function toggleDevMode() {
+    devModeOn = !devModeOn;
+    document.body.classList.toggle("dev-mode", devModeOn);
+    if (!devModeOn) return;
+    $("devVersionNum").textContent = APP_VERSION;
+    $("devBugReportCount").textContent = bugReports.length;
+    renderDevToday();
+    $("devChangelog").innerHTML = CHANGELOG.map(c => `<div class="changelog-entry">
+      <span class="changelog-version">v${c.version}</span><span class="changelog-date">${c.date}</span>
+      <ul>${c.changes.map(x => `<li>${x}</li>`).join("")}</ul>
+    </div>`).join("");
+  }
+
+  // Moves "today" forward to rehearse week rollovers and close-outs. The first
+  // jump switches to test mode, where nothing is saved or synced until a reload.
+  function timeTravel(days) {
+    if (!testMode) {
+      if (!confirm("Time travel is for testing. Momo switches to test mode: nothing is saved or synced until you reload the page. Continue?")) return;
+      testMode = true;
+      clearTimeout(autosaveTimer);
+      autosaveTimer = 0;
+    }
+    dayOffset += days;
+    renderDevToday();
+    checkRollover();
+  }
+
+  // ==========================================================================
+  // IMPORT / EXPORT
+  // ==========================================================================
+  function downloadBlob(blob, filename) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a); // some browsers ignore clicks on detached links
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000); // revoking immediately can cancel the download
+  }
+
+  function buildBackup() {
+    return {
+      schemaVersion: DATA_SCHEMA_VERSION,
+      appVersion: APP_VERSION,
+      weeks: data.weeks,
+      baseline: data.baseline,
+      goals: data.goals
+    };
+  }
+
+  function exportBackup() {
+    downloadBlob(new Blob([JSON.stringify(buildBackup(), null, 2)], { type: "application/json" }), `momo-backup-${todayStr()}.json`);
+    setUnsaved(false);
+  }
+
+  // Replaces everything with the backup's data, after validating it first so a
+  // bad file never changes anything, and asking first if there's data to lose.
+  function importBackup(text) {
+    let raw;
+    try { raw = JSON.parse(text); } catch (err) { return alert("That file isn't a valid Momo backup (it couldn't be read as JSON)."); }
+    if (!isMomoData(raw)) return alert("That file doesn't look like a Momo backup: no weeks, baseline or goals found.");
+    const clean = normalizeData(raw);
+    if (!hasData(clean)) return alert("That backup has nothing in it Momo can use.");
+    if (isNum(raw.schemaVersion) && raw.schemaVersion > DATA_SCHEMA_VERSION) {
+      alert("Heads up: this backup was made by a newer version of Momo. Importing it anyway, but some data may not carry over.");
+    }
+    if (hasData(data) && !confirm("Replace everything in Momo — weeks, baseline and goals — with this backup? This can't be undone.")) return;
+    data = clean;
+    undoStack = [];
+    remember();
+    store(false);
+    closeOutLater = false;
+    renderAll();
+    checkCloseOuts();
+  }
+
+  // ==========================================================================
+  // FOLDER AUTOSAVE & SYNC
+  // ==========================================================================
+  // Changes are saved as JSON into a folder the user picks (e.g. one Syncthing
+  // shares between their phone and computer), and other devices' saves are
+  // loaded from it, checking every few seconds. Each device writes only its own
+  // file, so a sync tool never sees two devices edit the same file. Saves carry
+  // version counters (how many changes each device has made) that tell whether
+  // another device's save is newer (load it), older (ignore it), or was made
+  // while this device also had unsynced changes (combine the two).
+  const SYNC_RETRY_NOTE = "Couldn't reach the folder, retrying";
+  const clockTime = () => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  // The folder's handle can't go in localStorage, so it's kept in IndexedDB.
+  function folderStore(mode, action) {
+    return new Promise((resolve, reject) => {
+      const open = indexedDB.open("momo", 1);
+      open.onupgradeneeded = () => open.result.createObjectStore("handles");
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const db = open.result;
+        try {
+          const tx = db.transaction("handles", mode), req = action(tx.objectStore("handles"));
+          tx.oncomplete = () => { db.close(); resolve(req.result); };
+          tx.onerror = tx.onabort = () => { db.close(); reject(tx.error); };
+        } catch (err) { db.close(); reject(err); }
+      };
+    });
+  }
+  const loadSyncFolder = () => folderStore("readonly", store => store.get("syncFolder"));
+  const storeSyncFolder = dir => folderStore("readwrite", store => (dir ? store.put(dir, "syncFolder") : store.delete("syncFolder")));
+
+  // A save's version counters, { deviceId: changes made there }, minus anything invalid.
+  function cleanClock(c) {
+    if (!isObj(c)) return null;
+    const out = {};
+    Object.keys(c).forEach(k => { if (isPos(c[k])) out[k] = c[k]; });
+    return out;
+  }
+
+  // Whether version a is the "same" as b, "ahead" (has all of b's changes and
+  // more), "behind", or "diverged" (each has changes the other doesn't).
+  function compareClocks(a, b) {
+    let ahead = false, behind = false;
+    Object.keys({ ...a, ...b }).forEach(k => {
+      if ((a[k] || 0) > (b[k] || 0)) ahead = true;
+      if ((a[k] || 0) < (b[k] || 0)) behind = true;
+    });
+    return ahead && behind ? "diverged" : ahead ? "ahead" : behind ? "behind" : "same";
+  }
+  const maxClocks = (a, b) => Object.keys(b).reduce((c, k) => ({ ...c, [k]: Math.max(c[k] || 0, b[k]) }), { ...a });
+
+  // Combines two versions changed separately: every week, the baseline and every
+  // goal is taken from whichever side changed it last, and goal hours logged on
+  // either side are all kept. Gives the same result on every device, so two
+  // devices combining at once still agree.
+  function mergeVersions(a, b) {
+    const [older, newer] = a.savedAt + a.device > b.savedAt + b.device ? [b, a] : [a, b];
+    const pick = (o, n) => (!o ? n : !n ? o : o.u > n.u ? o : n); // a tie goes to the newer save
+    const weeks = {};
+    [...new Set(Object.keys(older.weeks).concat(Object.keys(newer.weeks)))].sort().forEach(k => { weeks[k] = pick(older.weeks[k], newer.weeks[k]); });
+    const goals = new Map(older.goals.map(g => [g.id, g]));
+    newer.goals.forEach(g => {
+      const o = goals.get(g.id);
+      if (!o) return goals.set(g.id, g);
+      const win = pick(o, g), lose = win === o ? g : o;
+      goals.set(g.id, { ...win, log: { ...lose.log, ...win.log } });
+    });
+    return { weeks, baseline: pick(older.baseline, newer.baseline), goals: [...goals.values()] };
+  }
+  const dataKey = d => JSON.stringify([Object.keys(d.weeks).sort().map(k => [k, d.weeks[k]]), d.baseline, d.goals]);
+
+  // Brings in a save found in the folder; returns what happened, or "" if nothing.
+  function incorporate(raw) {
+    const clock = raw.sync && cleanClock(raw.sync.clock);
+    const rel = clock ? compareClocks(syncMeta.clock, clock) : "plain";
+    // A device with no data yet (a new phone, say) takes a save as it is.
+    // Plain backups (Export JSON files) are only ever used that way.
+    const replace = rel === "behind" || (!hasData(data) && (rel === "diverged" || rel === "plain"));
+    const merge = rel === "diverged" && !replace;
+    if (!replace && !merge) return "";
+    const theirs = normalizeData(raw);
+    if (!clock && !hasData(theirs)) return "";
+    const next = replace ? theirs : mergeVersions(
+      { ...data, savedAt: syncMeta.changedAt, device: syncMeta.device },
+      { ...theirs, savedAt: String(raw.savedAt || ""), device: String(raw.sync.device || "") });
+    if (clock) syncMeta.clock = maxClocks(syncMeta.clock, clock);
+    if (!clock || dataKey(next) !== dataKey(theirs)) {
+      markLocalChange(); // a version the folder doesn't have yet, so it gets saved there
+    } else {
+      syncMeta.changedAt = String(raw.savedAt || syncMeta.changedAt);
+      storeSyncMeta();
+    }
+    if (dataKey(next) === dataKey(data)) return ""; // nothing new here
+    data = { weeks: next.weeks, baseline: next.baseline, goals: next.goals };
+    return replace ? "Loaded" : "Combined changes with";
+  }
+
+  // Reads the folder's saves that are new or changed since last time, most up to
+  // date first, and brings them in.
+  async function readFolder(dir) {
+    const changed = [];
+    for await (const [name, handle] of dir.entries()) {
+      if (handle.kind !== "file" || !/\.json$/i.test(name)) continue;
+      try {
+        const file = await handle.getFile();
+        const sig = `${file.lastModified}:${file.size}`;
+        if (syncSeen.get(name) !== sig) changed.push({ name, file, sig });
+      } catch (err) { /* mid-transfer; the next check gets it */ }
+    }
+    changed.sort((a, b) => b.file.lastModified - a.file.lastModified);
+    let what = "";
+    for (const { name, file, sig } of changed) {
+      let raw = null;
+      try { raw = JSON.parse(await file.text()); } catch (err) { /* not a save, or changed while being read: retried once it changes */ }
+      if (dir !== syncDir || testMode) return;
+      syncSeen.set(name, sig);
+      const result = isMomoData(raw) ? incorporate(raw) : "";
+      if (result && !what) what = `${result} “${name}”`;
+    }
+    if (!what) return;
+    undoStack = []; // undo would otherwise step back over the other device's changes
+    remember();
+    persist();
+    renderAll();
+    checkCloseOuts();
+    syncNote = `${what} at ${clockTime()}`;
+    renderSync();
+  }
+
+  // Saves this device's file in the folder, if it has changes the folder lacks.
+  async function writeAutosave() {
+    const dir = syncDir;
+    if (syncState !== "on" || !syncMeta.dirty || testMode) return;
+    const version = syncMeta.clock[syncMeta.device];
+    const text = JSON.stringify({ ...buildBackup(), savedAt: syncMeta.changedAt, sync: { device: syncMeta.device, clock: syncMeta.clock } }, null, 2);
+    const handle = await dir.getFileHandle(syncMeta.file, { create: true });
+    const out = await handle.createWritable();
+    await out.write(text);
+    await out.close();
+    const file = await handle.getFile();
+    if (dir !== syncDir) return;
+    syncSeen.set(syncMeta.file, `${file.lastModified}:${file.size}`); // our own save isn't news
+    if (syncMeta.clock[syncMeta.device] === version) { // nothing changed while writing
+      syncMeta.dirty = false;
+      storeSyncMeta();
+      setUnsaved(false);
+    }
+    syncNote = `Saved at ${clockTime()}`;
+    renderSync();
+  }
+
+  async function syncPass() {
+    if (syncState !== "on" || testMode) return;
+    await readFolder(syncDir);
+    await writeAutosave();
+    if (syncNote === SYNC_RETRY_NOTE) { syncNote = ""; renderSync(); }
+  }
+
+  // Folder work runs one step at a time, so saving and checking never overlap.
+  function syncTask(fn) {
+    syncQueue = syncQueue.then(fn).catch(onSyncError);
+  }
+
+  function requestSync() {
+    if (syncState !== "on" || syncQueued || testMode) return;
+    syncQueued = true;
+    syncTask(() => { syncQueued = false; return syncPass(); });
+  }
+
+  function scheduleAutosave() {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = syncState === "on" && !testMode ? setTimeout(flushAutosave, AUTOSAVE_DELAY_MS) : 0;
+  }
+
+  // Saves a pending change now (e.g. when the app is being hidden or closed).
+  function flushAutosave() {
+    if (!autosaveTimer) return;
+    clearTimeout(autosaveTimer);
+    autosaveTimer = 0;
+    syncTask(writeAutosave);
+  }
+
+  function onSyncError(err) {
+    if (syncMeta.dirty) setUnsaved(true);
+    if (syncNote !== SYNC_RETRY_NOTE) console.error("Folder sync failed.", err); // once per outage
+    if (syncState !== "on") return;
+    const name = err && err.name;
+    if (name === "NotAllowedError" || name === "SecurityError") setSyncState("paused");
+    else if (name === "NotFoundError") setSyncState("error", `Couldn't find the sync folder “${syncDir.name}”. It may have been moved or deleted.`);
+    else { syncNote = SYNC_RETRY_NOTE; renderSync(); }
+  }
+
+  function setSyncState(state, message = "") {
+    syncState = state;
+    syncMessage = message;
+    if (state !== "on") { clearTimeout(autosaveTimer); autosaveTimer = 0; } // unsaved changes go once it's back on
+    renderSync();
+  }
+
+  function renderSync() {
+    const folder = syncDir ? `“${syncDir.name}”` : "";
+    const status = !syncSupported ? "Autosave & sync to a folder needs Chrome or Edge, on a computer or Android."
+      : syncState === "on" ? `Autosave & sync on with folder ${folder}${syncNote ? ` · ${syncNote}` : ""}` : "";
+    $("syncBtn").hidden = !syncSupported;
+    $("syncBtn").textContent = syncState === "off" ? "Sync Folder…" : "Stop Syncing";
+    $("syncStatus").textContent = status;
+    $("syncStatus").hidden = !status;
+    $("syncBanner").hidden = syncState !== "paused" && syncState !== "error";
+    $("syncBannerText").textContent = syncState === "paused" ? `Autosave & sync with ${folder} is paused until you allow access again.` : syncMessage;
+    $("syncBannerBtn").textContent = syncState === "paused" ? "Reconnect" : "Choose Folder";
+  }
+
+  async function chooseSyncFolder() {
+    let dir;
+    try {
+      dir = await window.showDirectoryPicker({ id: "momo-sync", mode: "readwrite" });
+    } catch (err) {
+      if (err.name === "AbortError") return; // picker cancelled
+      console.error("Couldn't open that folder.", err);
+      return alert("Couldn't use that folder. Try choosing another one.");
+    }
+    syncDir = dir;
+    syncSeen = new Map();
+    syncNote = "";
+    syncMeta.dirty = true; // so this device's data is in the folder from the start
+    storeSyncMeta();
+    storeSyncFolder(dir).catch(err => console.warn("Couldn't remember the sync folder for next time.", err));
+    setSyncState("on");
+    requestSync();
+  }
+
+  // Browsers ask again for folder access after a restart, and only on a click.
+  async function reconnectSync() {
+    let permission = "denied";
+    try { permission = await syncDir.requestPermission({ mode: "readwrite" }); } catch (err) { console.warn("Folder permission request failed.", err); }
+    if (permission !== "granted") return setSyncState("error", `Access to “${syncDir.name}” wasn't allowed. Choose the folder again to resume autosave & sync.`);
+    setSyncState("on");
+    requestSync();
+  }
+
+  function stopSync() {
+    if (!confirm(`Stop autosave & sync with “${syncDir.name}”? Your data stays on this device, and the files already in that folder are left as they are.`)) return;
+    syncDir = null;
+    syncSeen = new Map();
+    syncNote = "";
+    setSyncState("off");
+    storeSyncFolder(null).catch(err => console.warn("Couldn't forget the sync folder.", err));
+  }
+
+  // Picks up the folder chosen last time: straight away if the browser still
+  // allows access, otherwise once the user reconnects.
+  async function initSync() {
+    renderSync();
+    if (!syncSupported) return;
+    try { syncDir = (await loadSyncFolder()) || null; } catch (err) { console.warn("Couldn't load the sync folder setting.", err); }
+    if (!syncDir) return;
+    let permission = "prompt";
+    try { permission = await syncDir.queryPermission({ mode: "readwrite" }); } catch (err) { /* ask again */ }
+    setSyncState(permission === "granted" ? "on" : "paused");
+    requestSync();
+  }
+
+  // ==========================================================================
+  // EVENTS
+  // ==========================================================================
+  // − / + buttons next to a number field step it by half an hour, within its min and max.
+  function onStepper(e) {
+    const btn = e.target.closest(".step-btn");
+    if (!btn) return;
+    const input = btn.parentElement.querySelector("input");
+    const min = parseFloat(input.min), max = parseFloat(input.max);
+    const next = snap((parseFloat(input.value) || 0) + BUTTON_STEP * +btn.dataset.step);
+    input.value = fmtNum(Math.min(isNum(max) ? max : DAY_HOURS, Math.max(isNum(min) ? min : 0, next)));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function setTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    storageSet(KEYS.theme, theme);
+  }
+
+  $("themeToggle").addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"));
+  $("viewToggle").addEventListener("click", e => {
+    const btn = e.target.closest("button[data-view]");
+    if (!btn || btn.dataset.view === view) return;
+    view = btn.dataset.view;
+    renderAll();
+  });
+  $("closeOutNowBtn").addEventListener("click", closeOutEarly);
+  $("closeOutBannerBtn").addEventListener("click", () => {
+    closeOutLater = false;
+    const due = reviewWeeks();
+    if (due.length) openCloseOut(due[0]);
+  });
+  $("loadBaselineBtn").addEventListener("click", loadBaseline);
+  $("gotoBaselineBtn").addEventListener("click", () => { view = "base"; renderAll(); });
+  $("sampleBaselineBtn").addEventListener("click", startSampleBaseline);
+  $("fillGapsBtn").addEventListener("click", fillGaps);
+  $("reopenBtn").addEventListener("click", reopenWeek);
+  $("clearBtn").addEventListener("click", clearBoard);
+  $("addParkedBtn").addEventListener("click", () => openCardEditor(null, { day: null }));
+
+  ["board", "parking"].forEach(id => {
+    $(id).addEventListener("pointerdown", onBoardPointerDown);
+    $(id).addEventListener("click", onBoardClick);
+    $(id).addEventListener("keydown", onCardKey);
+    $(id).addEventListener("contextmenu", e => { if (press || drag) e.preventDefault(); }); // long-press menus
+  });
+  document.addEventListener("pointermove", onPointerMove);
+  document.addEventListener("pointerup", onPointerUp);
+  document.addEventListener("pointercancel", onPointerCancel);
+  // Once a touch drag has started, the page mustn't scroll under the finger.
+  document.addEventListener("touchmove", e => { if (drag || resize) e.preventDefault(); }, { passive: false });
+
+  $("newGoalBtn").addEventListener("click", () => openGoalEditor(null));
+  $("goalsList").addEventListener("click", e => {
+    const el = e.target.closest(".goal");
+    if (el) openGoalEditor(el.dataset.goalId);
+  });
+  $("goalsList").addEventListener("keydown", e => {
+    if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("goal")) {
+      e.preventDefault();
+      openGoalEditor(e.target.dataset.goalId);
+    }
+  });
+
+  $("cardSaveBtn").addEventListener("click", saveCard);
+  $("cardDeleteBtn").addEventListener("click", deleteCard);
+  $("cardCancelBtn").addEventListener("click", () => dismissOverlay("cardOverlay"));
+  $("cardClose").addEventListener("click", () => dismissOverlay("cardOverlay"));
+  $("cardDays").addEventListener("click", onDayPill);
+  $("cardColors").addEventListener("click", e => {
+    const s = e.target.closest(".swatch");
+    if (!s || !editing) return;
+    editing.color = +s.dataset.color;
+    editing.colorPicked = true;
+    renderSwatches("cardColors", editing.color);
+  });
+  $("cardTitle").addEventListener("input", onCardTitleInput);
+  $("cardGoal").addEventListener("change", onCardGoalChange);
+
+  $("goalSaveBtn").addEventListener("click", saveGoal);
+  $("goalDeleteBtn").addEventListener("click", deleteGoal);
+  $("goalCancelBtn").addEventListener("click", () => dismissOverlay("goalOverlay"));
+  $("goalClose").addEventListener("click", () => dismissOverlay("goalOverlay"));
+  $("goalColors").addEventListener("click", e => {
+    const s = e.target.closest(".swatch");
+    if (!s || !editingGoal) return;
+    editingGoal.color = +s.dataset.color;
+    renderSwatches("goalColors", editingGoal.color);
+  });
+
+  $("closeOutConfirmBtn").addEventListener("click", confirmCloseOut);
+  $("closeOutLaterBtn").addEventListener("click", closeOutLaterClick);
+  $("closeOutRows").addEventListener("input", onCloseOutInput);
+  $("closeOutRows").addEventListener("change", onCloseOutChange);
+  document.addEventListener("click", onStepper);
+
+  // A click on the dimmed backdrop closes an editor — only if it started there,
+  // so selecting text in a field and letting go outside doesn't.
+  ["cardOverlay", "goalOverlay", "bugReportOverlay"].forEach(id => {
+    let downOnBackdrop = false;
+    $(id).addEventListener("pointerdown", e => { downOnBackdrop = e.target.id === id; });
+    $(id).addEventListener("click", e => { if (downOnBackdrop && e.target.id === id) dismissOverlay(id); });
+  });
+
+  $("exportBtn").addEventListener("click", exportBackup);
+  $("importBtn").addEventListener("click", () => $("fileImport").click());
+  $("fileImport").addEventListener("change", e => {
+    const file = e.target.files[0];
+    e.target.value = ""; // so picking the same file again still triggers an import
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => importBackup(reader.result);
+    reader.onerror = () => alert("Couldn't read that file.");
+    reader.readAsText(file);
+  });
+  $("syncBtn").addEventListener("click", () => (syncState === "off" ? chooseSyncFolder() : stopSync()));
+  $("syncBannerBtn").addEventListener("click", () => (syncState === "paused" ? reconnectSync() : chooseSyncFolder()));
+  $("toastUndo").addEventListener("click", undo);
+  $("testBannerBtn").addEventListener("click", () => location.reload());
+
+  $("devBadge").addEventListener("click", toggleDevMode);
+  $("devPanelClose").addEventListener("click", toggleDevMode);
+  $("devPlusDayBtn").addEventListener("click", () => timeTravel(1));
+  $("devPlusWeekBtn").addEventListener("click", () => timeTravel(7));
+  $("reportBugLink").addEventListener("click", e => { e.preventDefault(); openBugReportModal(); });
+  $("bugReportClose").addEventListener("click", () => dismissOverlay("bugReportOverlay"));
+  $("bugReportSubmitBtn").addEventListener("click", submitBugReport);
+  $("devCopyBugReportsBtn").addEventListener("click", async () => {
+    if (!bugReports.length) return alert("No bug reports logged yet.");
+    if (!(await copyTextToClipboard(combinedBugReports()))) alert("Couldn't copy automatically — try the Download button instead.");
+  });
+  $("devDownloadBugReportsBtn").addEventListener("click", () => {
+    if (!bugReports.length) return alert("No bug reports logged yet.");
+    downloadBlob(new Blob([combinedBugReports()], { type: "text/markdown" }), `momo-bug-reports-${todayStr()}.md`);
+  });
+  $("devClearBugReportsBtn").addEventListener("click", () => {
+    if (!bugReports.length || !confirm(`Clear all ${bugReports.length} logged bug report(s)? This can't be undone.`)) return;
+    bugReports = [];
+    storageSet(KEYS.bugReports, "[]");
+    $("devBugReportCount").textContent = 0;
+  });
+
+  // Ctrl+9 toggles developer mode; Esc cancels a drag or closes the top dialog;
+  // Enter saves an editor; Ctrl/Cmd+Z undoes (outside text fields).
+  document.addEventListener("keydown", e => {
+    if (e.ctrlKey && (e.key === "9" || e.code === "Digit9")) {
+      e.preventDefault();
+      toggleDevMode();
+      return;
+    }
+    if (e.key === "Escape") {
+      if (drag) endDrag(false);
+      else if (resize) endResize(false);
+      else if (topOverlay()) dismissOverlay(topOverlay());
+      return;
+    }
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "z" && !typing && !topOverlay()) {
+      e.preventDefault();
+      undo();
+    } else if (e.key === "Enter" && typing && e.target.tagName !== "TEXTAREA") {
+      const top = topOverlay();
+      if (top === "cardOverlay") { e.preventDefault(); saveCard(); }
+      else if (top === "goalOverlay") { e.preventDefault(); saveGoal(); }
+    }
+  });
+
+  // Rollover checks every minute and whenever the app comes back into view. The
+  // sync folder is checked for other devices' saves every few seconds while the
+  // app is on screen; a pending autosave is written when it's hidden or closed.
+  setInterval(checkRollover, 60000);
+  setInterval(() => { if (!document.hidden) requestSync(); }, SYNC_CHECK_MS);
+  window.addEventListener("focus", requestSync);
+  window.addEventListener("pagehide", flushAutosave);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return flushAutosave();
+    requestSync();
+    checkRollover();
+  });
+
+  // ==========================================================================
+  // INIT
+  // ==========================================================================
+  const savedTheme = storageGet(KEYS.theme);
+  const hour = new Date().getHours();
+  setTheme(savedTheme === "dark" || savedTheme === "light" ? savedTheme : hour >= 19 || hour < 7 ? "dark" : "light");
+  loadAll();
+  remember();
+  knownToday = todayStr();
+  $("appVersionTag").textContent = `v${APP_VERSION}`;
+  renderAll();
+  checkCloseOuts();
+  initSync();
+})();
+</script>
+</body>
+</html>

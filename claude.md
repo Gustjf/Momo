@@ -1,4 +1,4 @@
-Project Context: Single-File Vanilla HTML/JS Meal planner app
+Project Context: Single-File Vanilla HTML/JS weekly time-budgeting app (YNAB-style, for hours)
 Tech Stack & Architecture
 
     Stack: Pure HTML5, CSS3, and Vanilla JavaScript (ES6+) contained entirely within a single html file.

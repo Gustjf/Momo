@@ -1,0 +1,1291 @@
+{
+  "schemaVersion": 1,
+  "appVersion": "1.000",
+  "weeks": {
+    "2026-09-14": {
+      "cards": [
+        {
+          "id": "c00p",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 0,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c00q",
+          "title": "Work",
+          "hours": 8,
+          "day": 0,
+          "goalId": null,
+          "color": 0,
+          "base": true
+        },
+        {
+          "id": "c00r",
+          "title": "Commute",
+          "hours": 1,
+          "day": 0,
+          "goalId": null,
+          "color": 6,
+          "base": true
+        },
+        {
+          "id": "c00s",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 0,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c00t",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 1,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c00u",
+          "title": "Work",
+          "hours": 8,
+          "day": 1,
+          "goalId": null,
+          "color": 0,
+          "base": true
+        },
+        {
+          "id": "c00v",
+          "title": "Commute",
+          "hours": 1,
+          "day": 1,
+          "goalId": null,
+          "color": 6,
+          "base": true
+        },
+        {
+          "id": "c00w",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 1,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c00x",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 2,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c00y",
+          "title": "Work",
+          "hours": 8,
+          "day": 2,
+          "goalId": null,
+          "color": 0,
+          "base": true
+        },
+        {
+          "id": "c00z",
+          "title": "Commute",
+          "hours": 1,
+          "day": 2,
+          "goalId": null,
+          "color": 6,
+          "base": true
+        },
+        {
+          "id": "c010",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 2,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c011",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 3,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c012",
+          "title": "Work",
+          "hours": 8,
+          "day": 3,
+          "goalId": null,
+          "color": 0,
+          "base": true
+        },
+        {
+          "id": "c013",
+          "title": "Commute",
+          "hours": 1,
+          "day": 3,
+          "goalId": null,
+          "color": 6,
+          "base": true
+        },
+        {
+          "id": "c014",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 3,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c015",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 4,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c016",
+          "title": "Work",
+          "hours": 8,
+          "day": 4,
+          "goalId": null,
+          "color": 0,
+          "base": true
+        },
+        {
+          "id": "c017",
+          "title": "Commute",
+          "hours": 1,
+          "day": 4,
+          "goalId": null,
+          "color": 6,
+          "base": true
+        },
+        {
+          "id": "c018",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 4,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c019",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 5,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c01a",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 5,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c01b",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 6,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c01c",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 6,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c01d",
+          "title": "Learn Spanish",
+          "hours": 1,
+          "day": 0,
+          "goalId": "g-spanish",
+          "color": 5,
+          "base": false
+        },
+        {
+          "id": "c01e",
+          "title": "Write the novel",
+          "hours": 2,
+          "day": 1,
+          "goalId": "g-novel",
+          "color": 2,
+          "base": false
+        },
+        {
+          "id": "c01f",
+          "title": "Learn Spanish",
+          "hours": 1,
+          "day": 2,
+          "goalId": "g-spanish",
+          "color": 5,
+          "base": false
+        },
+        {
+          "id": "c01g",
+          "title": "Write the novel",
+          "hours": 2,
+          "day": 3,
+          "goalId": "g-novel",
+          "color": 2,
+          "base": false
+        },
+        {
+          "id": "c01h",
+          "title": "Learn Spanish",
+          "hours": 1,
+          "day": 4,
+          "goalId": "g-spanish",
+          "color": 5,
+          "base": false
+        },
+        {
+          "id": "c01i",
+          "title": "Write the novel",
+          "hours": 4,
+          "day": 5,
+          "goalId": "g-novel",
+          "color": 2,
+          "base": false
+        },
+        {
+          "id": "c01j",
+          "title": "Free time",
+          "hours": 4,
+          "day": 0,
+          "goalId": null,
+          "color": 7,
+          "base": false
+        },
+        {
+          "id": "c01k",
+          "title": "Free time",
+          "hours": 3,
+          "day": 1,
+          "goalId": null,
+          "color": 7,
+          "base": false
+        },
+        {
+          "id": "c01l",
+          "title": "Free time",
+          "hours": 4,
+          "day": 2,
+          "goalId": null,
+          "color": 7,
+          "base": false
+        },
+        {
+          "id": "c01m",
+          "title": "Free time",
+          "hours": 3,
+          "day": 3,
+          "goalId": null,
+          "color": 7,
+          "base": false
+        },
+        {
+          "id": "c01n",
+          "title": "Free time",
+          "hours": 4,
+          "day": 4,
+          "goalId": null,
+          "color": 7,
+          "base": false
+        },
+        {
+          "id": "c01o",
+          "title": "Family",
+          "hours": 6,
+          "day": 5,
+          "goalId": null,
+          "color": 3,
+          "base": false
+        },
+        {
+          "id": "c01p",
+          "title": "Free time",
+          "hours": 4,
+          "day": 5,
+          "goalId": null,
+          "color": 7,
+          "base": false
+        },
+        {
+          "id": "c01q",
+          "title": "Family",
+          "hours": 6,
+          "day": 6,
+          "goalId": null,
+          "color": 3,
+          "base": false
+        },
+        {
+          "id": "c01r",
+          "title": "Free time",
+          "hours": 8,
+          "day": 6,
+          "goalId": null,
+          "color": 7,
+          "base": false
+        }
+      ],
+      "closed": false,
+      "u": 1790337600000
+    },
+    "2026-09-21": {
+      "cards": [
+        {
+          "id": "c01s",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 0,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c01t",
+          "title": "Work",
+          "hours": 8,
+          "day": 0,
+          "goalId": null,
+          "color": 0,
+          "base": true
+        },
+        {
+          "id": "c01u",
+          "title": "Commute",
+          "hours": 1,
+          "day": 0,
+          "goalId": null,
+          "color": 6,
+          "base": true
+        },
+        {
+          "id": "c01v",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 0,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c01w",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 1,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c01x",
+          "title": "Work",
+          "hours": 8,
+          "day": 1,
+          "goalId": null,
+          "color": 0,
+          "base": true
+        },
+        {
+          "id": "c01y",
+          "title": "Commute",
+          "hours": 1,
+          "day": 1,
+          "goalId": null,
+          "color": 6,
+          "base": true
+        },
+        {
+          "id": "c01z",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 1,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c020",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 2,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c021",
+          "title": "Work",
+          "hours": 8,
+          "day": 2,
+          "goalId": null,
+          "color": 0,
+          "base": true
+        },
+        {
+          "id": "c022",
+          "title": "Commute",
+          "hours": 1,
+          "day": 2,
+          "goalId": null,
+          "color": 6,
+          "base": true
+        },
+        {
+          "id": "c023",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 2,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c024",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 3,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c025",
+          "title": "Work",
+          "hours": 8,
+          "day": 3,
+          "goalId": null,
+          "color": 0,
+          "base": true
+        },
+        {
+          "id": "c026",
+          "title": "Commute",
+          "hours": 1,
+          "day": 3,
+          "goalId": null,
+          "color": 6,
+          "base": true
+        },
+        {
+          "id": "c027",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 3,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c028",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 4,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c029",
+          "title": "Work",
+          "hours": 8,
+          "day": 4,
+          "goalId": null,
+          "color": 0,
+          "base": true
+        },
+        {
+          "id": "c02a",
+          "title": "Commute",
+          "hours": 1,
+          "day": 4,
+          "goalId": null,
+          "color": 6,
+          "base": true
+        },
+        {
+          "id": "c02b",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 4,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c02c",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 5,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c02d",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 5,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c02e",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 6,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c02f",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 6,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c02g",
+          "title": "Gym",
+          "hours": 1,
+          "day": 0,
+          "goalId": null,
+          "color": 3,
+          "base": false
+        },
+        {
+          "id": "c02h",
+          "title": "Free time",
+          "hours": 4,
+          "day": 0,
+          "goalId": null,
+          "color": 7,
+          "base": false
+        },
+        {
+          "id": "c02i",
+          "title": "Write the novel",
+          "hours": 2,
+          "day": 1,
+          "goalId": "g-novel",
+          "color": 2,
+          "base": false
+        },
+        {
+          "id": "c02j",
+          "title": "Free time",
+          "hours": 3,
+          "day": 1,
+          "goalId": null,
+          "color": 7,
+          "base": false
+        },
+        {
+          "id": "c02k",
+          "title": "Dentist",
+          "hours": 2,
+          "day": 2,
+          "goalId": null,
+          "color": 6,
+          "base": false
+        },
+        {
+          "id": "c02l",
+          "title": "Learn Spanish",
+          "hours": 1,
+          "day": 2,
+          "goalId": "g-spanish",
+          "color": 5,
+          "base": false
+        },
+        {
+          "id": "c02m",
+          "title": "Free time",
+          "hours": 2,
+          "day": 2,
+          "goalId": null,
+          "color": 7,
+          "base": false
+        },
+        {
+          "id": "c02n",
+          "title": "Write the novel",
+          "hours": 2,
+          "day": 3,
+          "goalId": "g-novel",
+          "color": 2,
+          "base": false
+        },
+        {
+          "id": "c02o",
+          "title": "Free time",
+          "hours": 3,
+          "day": 3,
+          "goalId": null,
+          "color": 7,
+          "base": false
+        },
+        {
+          "id": "c02p",
+          "title": "Gym",
+          "hours": 1,
+          "day": 4,
+          "goalId": null,
+          "color": 3,
+          "base": false
+        },
+        {
+          "id": "c02q",
+          "title": "Free time",
+          "hours": 4,
+          "day": 4,
+          "goalId": null,
+          "color": 7,
+          "base": false
+        },
+        {
+          "id": "c02r",
+          "title": "Write the novel",
+          "hours": 4,
+          "day": 5,
+          "goalId": "g-novel",
+          "color": 2,
+          "base": false
+        },
+        {
+          "id": "c02s",
+          "title": "Family",
+          "hours": 6,
+          "day": 5,
+          "goalId": null,
+          "color": 3,
+          "base": false
+        },
+        {
+          "id": "c02t",
+          "title": "Free time",
+          "hours": 4,
+          "day": 5,
+          "goalId": null,
+          "color": 7,
+          "base": false
+        },
+        {
+          "id": "c02u",
+          "title": "Family",
+          "hours": 6,
+          "day": 6,
+          "goalId": null,
+          "color": 3,
+          "base": false
+        },
+        {
+          "id": "c02v",
+          "title": "Learn Spanish",
+          "hours": 2,
+          "day": 6,
+          "goalId": "g-spanish",
+          "color": 5,
+          "base": false
+        },
+        {
+          "id": "c02w",
+          "title": "Free time",
+          "hours": 6,
+          "day": 6,
+          "goalId": null,
+          "color": 7,
+          "base": false
+        }
+      ],
+      "closed": false,
+      "u": 1790337600000
+    },
+    "2026-09-28": {
+      "cards": [
+        {
+          "id": "c02x",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 0,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c02y",
+          "title": "Work",
+          "hours": 8,
+          "day": 0,
+          "goalId": null,
+          "color": 0,
+          "base": true
+        },
+        {
+          "id": "c02z",
+          "title": "Commute",
+          "hours": 1,
+          "day": 0,
+          "goalId": null,
+          "color": 6,
+          "base": true
+        },
+        {
+          "id": "c030",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 0,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c031",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 1,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c032",
+          "title": "Work",
+          "hours": 8,
+          "day": 1,
+          "goalId": null,
+          "color": 0,
+          "base": true
+        },
+        {
+          "id": "c033",
+          "title": "Commute",
+          "hours": 1,
+          "day": 1,
+          "goalId": null,
+          "color": 6,
+          "base": true
+        },
+        {
+          "id": "c034",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 1,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c035",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 2,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c036",
+          "title": "Work",
+          "hours": 8,
+          "day": 2,
+          "goalId": null,
+          "color": 0,
+          "base": true
+        },
+        {
+          "id": "c037",
+          "title": "Commute",
+          "hours": 1,
+          "day": 2,
+          "goalId": null,
+          "color": 6,
+          "base": true
+        },
+        {
+          "id": "c038",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 2,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c039",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 3,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c03a",
+          "title": "Work",
+          "hours": 8,
+          "day": 3,
+          "goalId": null,
+          "color": 0,
+          "base": true
+        },
+        {
+          "id": "c03b",
+          "title": "Commute",
+          "hours": 1,
+          "day": 3,
+          "goalId": null,
+          "color": 6,
+          "base": true
+        },
+        {
+          "id": "c03c",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 3,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c03d",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 4,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c03e",
+          "title": "Work",
+          "hours": 8,
+          "day": 4,
+          "goalId": null,
+          "color": 0,
+          "base": true
+        },
+        {
+          "id": "c03f",
+          "title": "Commute",
+          "hours": 1,
+          "day": 4,
+          "goalId": null,
+          "color": 6,
+          "base": true
+        },
+        {
+          "id": "c03g",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 4,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c03h",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 5,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c03i",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 5,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c03j",
+          "title": "Sleep",
+          "hours": 8,
+          "day": 6,
+          "goalId": null,
+          "color": 1,
+          "base": true
+        },
+        {
+          "id": "c03k",
+          "title": "Meals & chores",
+          "hours": 2,
+          "day": 6,
+          "goalId": null,
+          "color": 4,
+          "base": true
+        },
+        {
+          "id": "c03l",
+          "title": "Write the novel",
+          "hours": 2,
+          "day": 1,
+          "goalId": "g-novel",
+          "color": 2,
+          "base": false
+        },
+        {
+          "id": "c03m",
+          "title": "Write the novel",
+          "hours": 2,
+          "day": 3,
+          "goalId": "g-novel",
+          "color": 2,
+          "base": false
+        },
+        {
+          "id": "c03n",
+          "title": "Write the novel",
+          "hours": 2,
+          "day": 5,
+          "goalId": "g-novel",
+          "color": 2,
+          "base": false
+        },
+        {
+          "id": "c03o",
+          "title": "Gym",
+          "hours": 1,
+          "day": 0,
+          "goalId": null,
+          "color": 3,
+          "base": false
+        },
+        {
+          "id": "c03p",
+          "title": "Gym",
+          "hours": 1,
+          "day": 2,
+          "goalId": null,
+          "color": 3,
+          "base": false
+        },
+        {
+          "id": "c03q",
+          "title": "Gym",
+          "hours": 1,
+          "day": 4,
+          "goalId": null,
+          "color": 3,
+          "base": false
+        },
+        {
+          "id": "c03r",
+          "title": "Family",
+          "hours": 6,
+          "day": 5,
+          "goalId": null,
+          "color": 3,
+          "base": false
+        },
+        {
+          "id": "c03s",
+          "title": "Family",
+          "hours": 6,
+          "day": 6,
+          "goalId": null,
+          "color": 3,
+          "base": false
+        },
+        {
+          "id": "c03t",
+          "title": "Call grandma",
+          "hours": 1,
+          "day": null,
+          "goalId": null,
+          "color": 3,
+          "base": false
+        }
+      ],
+      "closed": false,
+      "u": 1790337600000
+    }
+  },
+  "baseline": {
+    "cards": [
+      {
+        "id": "c001",
+        "title": "Sleep",
+        "hours": 8,
+        "day": 0,
+        "goalId": null,
+        "color": 1,
+        "base": false
+      },
+      {
+        "id": "c002",
+        "title": "Work",
+        "hours": 8,
+        "day": 0,
+        "goalId": null,
+        "color": 0,
+        "base": false
+      },
+      {
+        "id": "c003",
+        "title": "Commute",
+        "hours": 1,
+        "day": 0,
+        "goalId": null,
+        "color": 6,
+        "base": false
+      },
+      {
+        "id": "c004",
+        "title": "Meals & chores",
+        "hours": 2,
+        "day": 0,
+        "goalId": null,
+        "color": 4,
+        "base": false
+      },
+      {
+        "id": "c005",
+        "title": "Sleep",
+        "hours": 8,
+        "day": 1,
+        "goalId": null,
+        "color": 1,
+        "base": false
+      },
+      {
+        "id": "c006",
+        "title": "Work",
+        "hours": 8,
+        "day": 1,
+        "goalId": null,
+        "color": 0,
+        "base": false
+      },
+      {
+        "id": "c007",
+        "title": "Commute",
+        "hours": 1,
+        "day": 1,
+        "goalId": null,
+        "color": 6,
+        "base": false
+      },
+      {
+        "id": "c008",
+        "title": "Meals & chores",
+        "hours": 2,
+        "day": 1,
+        "goalId": null,
+        "color": 4,
+        "base": false
+      },
+      {
+        "id": "c009",
+        "title": "Sleep",
+        "hours": 8,
+        "day": 2,
+        "goalId": null,
+        "color": 1,
+        "base": false
+      },
+      {
+        "id": "c00a",
+        "title": "Work",
+        "hours": 8,
+        "day": 2,
+        "goalId": null,
+        "color": 0,
+        "base": false
+      },
+      {
+        "id": "c00b",
+        "title": "Commute",
+        "hours": 1,
+        "day": 2,
+        "goalId": null,
+        "color": 6,
+        "base": false
+      },
+      {
+        "id": "c00c",
+        "title": "Meals & chores",
+        "hours": 2,
+        "day": 2,
+        "goalId": null,
+        "color": 4,
+        "base": false
+      },
+      {
+        "id": "c00d",
+        "title": "Sleep",
+        "hours": 8,
+        "day": 3,
+        "goalId": null,
+        "color": 1,
+        "base": false
+      },
+      {
+        "id": "c00e",
+        "title": "Work",
+        "hours": 8,
+        "day": 3,
+        "goalId": null,
+        "color": 0,
+        "base": false
+      },
+      {
+        "id": "c00f",
+        "title": "Commute",
+        "hours": 1,
+        "day": 3,
+        "goalId": null,
+        "color": 6,
+        "base": false
+      },
+      {
+        "id": "c00g",
+        "title": "Meals & chores",
+        "hours": 2,
+        "day": 3,
+        "goalId": null,
+        "color": 4,
+        "base": false
+      },
+      {
+        "id": "c00h",
+        "title": "Sleep",
+        "hours": 8,
+        "day": 4,
+        "goalId": null,
+        "color": 1,
+        "base": false
+      },
+      {
+        "id": "c00i",
+        "title": "Work",
+        "hours": 8,
+        "day": 4,
+        "goalId": null,
+        "color": 0,
+        "base": false
+      },
+      {
+        "id": "c00j",
+        "title": "Commute",
+        "hours": 1,
+        "day": 4,
+        "goalId": null,
+        "color": 6,
+        "base": false
+      },
+      {
+        "id": "c00k",
+        "title": "Meals & chores",
+        "hours": 2,
+        "day": 4,
+        "goalId": null,
+        "color": 4,
+        "base": false
+      },
+      {
+        "id": "c00l",
+        "title": "Sleep",
+        "hours": 8,
+        "day": 5,
+        "goalId": null,
+        "color": 1,
+        "base": false
+      },
+      {
+        "id": "c00m",
+        "title": "Meals & chores",
+        "hours": 2,
+        "day": 5,
+        "goalId": null,
+        "color": 4,
+        "base": false
+      },
+      {
+        "id": "c00n",
+        "title": "Sleep",
+        "hours": 8,
+        "day": 6,
+        "goalId": null,
+        "color": 1,
+        "base": false
+      },
+      {
+        "id": "c00o",
+        "title": "Meals & chores",
+        "hours": 2,
+        "day": 6,
+        "goalId": null,
+        "color": 4,
+        "base": false
+      }
+    ],
+    "u": 1790337600000
+  },
+  "goals": [
+    {
+      "id": "g-novel",
+      "name": "Write the novel",
+      "target": 500,
+      "start": 180,
+      "due": "2027-06-30",
+      "color": 2,
+      "log": {
+        "2026-08-31": 6,
+        "2026-09-07": 7.5
+      },
+      "deleted": false,
+      "u": 1790337600000
+    },
+    {
+      "id": "g-spanish",
+      "name": "Learn Spanish",
+      "target": 200,
+      "start": 20,
+      "due": "",
+      "color": 5,
+      "log": {
+        "2026-09-07": 3
+      },
+      "deleted": false,
+      "u": 1790337600000
+    }
+  ]
+}
