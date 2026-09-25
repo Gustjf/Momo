@@ -304,11 +304,14 @@
       </div>
       <div class="bank-actions">
         <button id="loadBaselineBtn">Load baseline</button>
+        <button class="secondary" id="copyPrevBtn">Copy previous week</button>
         <button id="gotoBaselineBtn">Set up baseline &rarr;</button>
         <button id="sampleBaselineBtn">Start from a sample</button>
         <button class="secondary" id="fillGapsBtn">Fill gaps with Free time</button>
         <button class="secondary" id="reopenBtn">Reopen week</button>
+        <button class="secondary" id="saveAsBaseBtn">Save as baseline</button>
         <button class="secondary" id="clearBtn">Clear week</button>
+        <button class="secondary" id="addBaseCardBtn">+ New card</button>
       </div>
     </div>
     <div class="parking" id="parking">
@@ -575,6 +578,12 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.232", date: "2026-09-25", changes: [
+      "Weeks can copy the previous week's plan, and any week can be saved as the new baseline."
+    ] },
+    { version: "1.132", date: "2026-09-25", changes: [
+      "The baseline has a + New card button, so a card can be added without clicking a day first."
+    ] },
     { version: "1.131", date: "2026-09-25", changes: [
       "Momo now opens on This week instead of Next week."
     ] },
@@ -1065,6 +1074,9 @@
     $("sampleBaselineBtn").hidden = !isBase || list.cards.length > 0;
     $("fillGapsBtn").hidden = isBase || locked || !onDays || b.free === 0;
     $("reopenBtn").hidden = !locked;
+    $("copyPrevBtn").hidden = isBase || locked || !weekOf(addDays(key, -7)).cards.length;
+    $("saveAsBaseBtn").hidden = isBase || !onDays;
+    $("addBaseCardBtn").hidden = !isBase; // weeks have theirs in the parking lot
     $("clearBtn").hidden = locked || !list.cards.length;
     $("clearBtn").textContent = isBase ? "Clear baseline" : "Clear week";
 
@@ -1424,13 +1436,13 @@
 
   // Opens the card editor for a card, or for a new card on a day (null = parked).
   // Either one can be put on several days at once.
-  function openCardEditor(id, { day = 0 } = {}) {
+  function openCardEditor(id, { day = 0, noDay = false } = {}) {
     if (isLocked()) return;
     const key = shownKey(), list = readList(key);
     const card = id ? list.cards.find(c => c.id === id) : null;
     if (id && !card) return;
-    const free = day === null ? 0 : DAY_HOURS - dayTotal(list, day);
-    editing = { key, id: card ? card.id : null, days: new Set([card ? card.day : day]), color: card ? card.color : newCardColor(list), lastGoalId: card ? card.goalId : null };
+    const free = day === null || noDay ? 0 : DAY_HOURS - dayTotal(list, day);
+    editing = { key, id: card ? card.id : null, days: new Set(noDay ? [] : [card ? card.day : day]), color: card ? card.color : newCardColor(list), lastGoalId: card ? card.goalId : null };
     $("cardModalTitle").textContent = card ? "Edit card" : "New card";
     $("cardTitle").value = card ? card.title : "";
     $("cardHours").value = fmtNum(card ? card.hours : free > 0 && free < 1 ? free : 1);
@@ -1726,6 +1738,33 @@
     renderAll();
     const left = budgetOf(week, key).free;
     toast(reload ? "Baseline reloaded" : `Baseline loaded — ${fmtH(left)} left to budget`, true);
+  }
+
+  // Copies the week before's plan into the week on screen, replacing what's
+  // there (after asking). Goal cards keep their goal only if it still exists.
+  function copyPrevWeek() {
+    const key = viewKey();
+    if (!key) return;
+    const prev = weekOf(addDays(key, -7)), week = ensureWeek(key);
+    if (!prev.cards.length || week.closed) return;
+    if (week.cards.length && !confirm(`Replace this week's ${week.cards.length} card${week.cards.length === 1 ? "" : "s"} with a copy of ${fmtWeek(addDays(key, -7))}?`)) return;
+    week.cards = prev.cards.map(c => ({ ...c, id: newId(), goalId: goalById(c.goalId) ? c.goalId : null }));
+    save();
+    renderAll();
+    toast(`Copied ${fmtWeek(addDays(key, -7))} — ${fmtH(budgetOf(week, key).free)} left to budget`, true);
+  }
+
+  // Makes the week on screen the new baseline: its cards on days (not parked)
+  // replace the baseline's.
+  function saveAsBaseline() {
+    const key = viewKey(), week = key && weekOf(key);
+    const cards = week ? week.cards.filter(c => c.day !== null) : [];
+    if (!cards.length) return;
+    if (data.baseline.cards.length && !confirm(`Replace your baseline (${data.baseline.cards.length} cards) with this week's ${cards.length} cards?`)) return;
+    data.baseline.cards = cards.map(c => ({ ...c, id: newId(), goalId: goalById(c.goalId) ? c.goalId : null, base: false }));
+    save();
+    renderAll();
+    toast("Saved as your baseline", true);
   }
 
   // Gives every counted day's free hours the job "Free time" — the deliberate
@@ -2399,6 +2438,9 @@
     if (due.length) openCloseOut(due[0]);
   });
   $("loadBaselineBtn").addEventListener("click", loadBaseline);
+  $("copyPrevBtn").addEventListener("click", copyPrevWeek);
+  $("saveAsBaseBtn").addEventListener("click", saveAsBaseline);
+  $("addBaseCardBtn").addEventListener("click", () => openCardEditor(null, { noDay: true }));
   $("gotoBaselineBtn").addEventListener("click", () => { view = "base"; renderAll(); });
   $("sampleBaselineBtn").addEventListener("click", startSampleBaseline);
   $("fillGapsBtn").addEventListener("click", fillGaps);
