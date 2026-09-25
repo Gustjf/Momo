@@ -34,3 +34,21 @@ Changelog & Versioning
 Git Workflow
 
     Make a new branch with the feature and then give me instructions on how to test and accept the changes.
+
+Project information/original prompt below: reference this when it makes sense, unless explicit told otherwise. confirm when commands that are given that grievously violate this.
+
+ use LocalStore and JSON import/export with auto sync. Use my other project, located in the currently connected github, Project Wan Shi Tong, as a reference for a lot of the UI aspects. Do not modify Project Wan Shi Tong in any way. It is read only. This application is supposed to be a "YNAB" style budgeting method but for time. Spend some extra time thinking about the best way to apply that - that is the most important philosophy. i want something very simple, minimalist that I can use to organize my thoughts. 
+
+    Kanban-Style Board: The primary interface relies on a drag-and-drop card system rather than a spreadsheet grid.
+    The "To Be Budgeted" Bank: A staging area holding any unassigned hours from the weekly 168-hour pool.
+    Seven Daily Columns: Monday through Sunday layout. Each column features a strict capacity tracker (e.g., Total: 24/24).
+    Task Cards: Time commitments exist as consolidated, dynamically sized blocks based on duration (e.g., a single 8-hour "Work" card rather than eight individual 1-hour cards).
+    Visual Constraints: Columns provide immediate visual feedback (e.g., turning red) if drag-and-drop actions push a specific day over its 24-hour limit.
+
+Core Application Workflows
+
+    One-Week-Ahead Planning: Budgeting is strictly proactive, focusing on allocating hours for the upcoming week rather than the current day.
+    Baseline Template (Auto-Funding): A one-click mechanism to load a saved configuration of recurring weekly commitments (sleep schedules, typical work shifts). This instantly deducts those hours from the 168-hour pool, leaving only discretionary time in the "To Be Budgeted" bank.
+    Mid-Week Adjustments (Rolling with the Punches): Users can freely drag task cards from one day to another to cover unexpected events, as long as all days balance back to 24 hours.
+    Long-Term Goals (Sinking Funds): Users can establish target hourly goals for multi-month or multi-year projects.
+    Weekly Close-Out Reconciliation: Before opening a new week, a modal prompts the user to review the past week's goal-oriented tasks. The app assumes successful completion by default and deducts those hours from the long-term master goals. If a user did not finish the planned time, they can manually add those unworked hours back to the master goal. The "lost" hours are discarded without requiring the user to categorize where the time actually went.
