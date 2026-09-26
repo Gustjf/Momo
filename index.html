@@ -196,13 +196,14 @@
   body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   body.is-resizing, body.is-resizing * { cursor: ns-resize !important; }
   body.is-dragging, body.is-resizing { user-select: none; -webkit-user-select: none; }
-  /* The dashed block under a day's cards is its free time; click it to add a card. */
-  .free { flex: 1 0 auto; display: flex; align-items: flex-start; justify-content: center; min-height: max(28px, calc(var(--h) * var(--hour) - 4px)); padding: 6px 4px; border: 1px dashed var(--border); border-radius: 5px; background: transparent; color: var(--muted); font-size: .76em; }
+  /* A day's free time is a dashed block saying how much it is, sized to match (short ones fit their
+     label): before a pinned card, and after the last card unless that runs to midnight. It's the one
+     place on a day to add a card: click it. The last one fills the rest of the column. */
+  .free { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; min-height: max(24px, calc(var(--h) * var(--hour) - 4px)); padding: 0 4px; border: 1px dashed var(--border); border-radius: 5px; background: transparent; color: var(--muted); font-size: .76em; }
+  .free.end { flex-grow: 1; }
   button.free:hover { background: var(--ring); border-color: var(--accent); color: var(--accent); }
-  .free.slim { flex: 0 0 auto; min-height: 26px; padding: 4px; }
-  .free.over { border-color: var(--bad); color: var(--bad); font-weight: 600; }
-  /* The free time left before a pinned card, sized to match; click it to add a card there. */
-  .free.gap { flex: 0 0 auto; align-items: center; min-height: 0; height: max(10px, calc(var(--h) * var(--hour) - 4px)); padding: 0 4px; }
+  /* How far over a day is, where its free time would be: just a label. */
+  .free.over { min-height: 24px; border-color: var(--bad); color: var(--bad); font-weight: 600; }
 
   /* --- Goals --- */
   .goal { padding: 10px 0; border-top: 1px solid var(--border); cursor: pointer; }
@@ -711,6 +712,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "4.011", date: "2026-09-26", changes: [
+      "Free time is the one place on a day to add a card: a day whose last card runs to midnight has no + under it any more, and every free block says how much time it has, short ones too."
+    ] },
     { version: "4.010", date: "2026-09-26", changes: [
       "Colours pick themselves: every card with the same title is the same colour everywhere, and no two titles or goals share one.",
       "Card and goal editors offer eight highlight colours; picking one that another title or goal has swaps their colours.",
@@ -1635,21 +1639,23 @@
     return `<span class="card-time${when.clash || when.at >= DAY_HOURS ? " clash" : ""}"><span class="clock">${fmtClock(when.at)}</span>${pin}</span>`;
   }
 
-  // The dashed block under a day's cards: the free time left at the end of
-  // the day (sized to match), or a slim add button once there's none, or how
-  // far over the day is — its hours past 24, else how far its cards run past
-  // midnight (just a label: there's no room for another card).
-  function freeHTML(d, room, total) {
-    if (room > 0) return `<button type="button" class="free" data-add-day="${d}" data-h="${room}" style="--h:${room}">+ ${fmtH(room)} free</button>`;
-    if (room === 0) return `<button type="button" class="free slim" data-add-day="${d}" data-auto aria-label="Add a card to ${DAY_LONG[d]}">+</button>`;
-    return `<div class="free slim over">${total > DAY_HOURS ? `${fmtH(total - DAY_HOURS)} over` : `${fmtH(-room)} past midnight`}</div>`;
+  // Free time on a day, sized to match and saying how much it is: before the
+  // pinned card beforeId, else after the day's last card. Clicking it adds a
+  // card there; it's the only place on a day that does. A plain spacer on a
+  // closed week.
+  const freeLabel = h => `+ ${fmtH(h)} free`;
+  function freeHTML(d, hours, beforeId, locked) {
+    const attrs = `class="free ${beforeId ? "gap" : "end"}"${beforeId ? ` data-before="${esc(beforeId)}"` : ""} style="--h:${hours}"`;
+    return locked ? `<div ${attrs}></div>` : `<button type="button" ${attrs} data-add-day="${d}" data-h="${hours}" aria-label="Add a card in ${fmtH(hours)} free">${freeLabel(hours)}</button>`;
   }
 
-  // The free time before a pinned card, sized to match (a plain spacer on a
-  // closed week). Clicking it adds a card there.
-  function gapHTML(d, gap, beforeId, locked) {
-    const attrs = `class="free gap" data-before="${esc(beforeId)}" style="--h:${gap}"`;
-    return locked ? `<div ${attrs}></div>` : `<button type="button" ${attrs} data-add-day="${d}" data-h="${gap}" title="${fmtH(gap)} free" aria-label="Add a card in ${fmtH(gap)} free">${gap >= 1 ? `+ ${fmtH(gap)} free` : ""}</button>`;
+  // What comes after a day's last card: the free time left before midnight,
+  // nothing when that card runs to midnight, or how far over the day is — its
+  // hours past 24, else how far its cards run past midnight (just a label).
+  function endHTML(d, room, total) {
+    if (room > 0) return freeHTML(d, room, null, false);
+    if (room === 0) return "";
+    return `<div class="free over">${total > DAY_HOURS ? `${fmtH(total - DAY_HOURS)} over` : `${fmtH(-room)} past midnight`}</div>`;
   }
 
   function renderBoard(list, key) {
@@ -1667,7 +1673,7 @@
           <div class="col-total">Total: <span class="col-sum">${fmtNum(total)}</span>/24</div>
           <div class="col-bar"><span style="width:${Math.min(100, total / DAY_HOURS * 100)}%"></span></div>
         </div>
-        <div class="col-body">${rows.map(r => (r.gap ? gapHTML(d, r.gap, r.card.id, locked) : "") + cardHTML(list, r.card, times)).join("")}${locked ? "" : freeHTML(d, DAY_HOURS - end, total)}</div>
+        <div class="col-body">${rows.map(r => (r.gap ? freeHTML(d, r.gap, r.card.id, locked) : "") + cardHTML(list, r.card, times)).join("")}${locked ? "" : endHTML(d, DAY_HOURS - end, total)}</div>
       </div>`;
     }).join("");
   }
@@ -2188,10 +2194,12 @@
       const r = rows.find(x => x.card.id === el.dataset.before), gap = r ? r.gap : 0;
       el.hidden = !gap;
       el.style.setProperty("--h", gap);
-      el.textContent = gap >= 1 ? `+ ${fmtH(gap)} free` : "";
+      el.textContent = freeLabel(gap);
     });
-    const free = col.querySelector(".col-body > .free:not(.gap)");
-    if (free) free.outerHTML = freeHTML(day, DAY_HOURS - end, total);
+    // What's after the last card comes and goes as the day fills up or frees up.
+    const body = col.querySelector(".col-body"), last = body.querySelector(":scope > .free:not(.gap)"), html = endHTML(day, DAY_HOURS - end, total);
+    if (last) last.outerHTML = html;
+    else body.insertAdjacentHTML("beforeend", html);
   }
 
   function endResize(commit) {
@@ -2211,10 +2219,10 @@
   }
 
   // A click on a pin pins or unpins its card; on free time it adds a card
-  // there (free time before a pinned card: in it; at the end of a day: last;
-  // a full day's + wherever it fits); on a card it opens it. With Alt held
-  // (Option on a Mac), a click anywhere on a card (its pin too) deletes it
-  // instead, and one on free time does nothing; Ctrl+Z brings the card back.
+  // there (free time before a pinned card: in it; at the end of a day:
+  // last); on a card it opens it. With Alt held (Option on a Mac), a click
+  // anywhere on a card (its pin too) deletes it instead, and one on free
+  // time does nothing; Ctrl+Z brings the card back.
   function onBoardClick(e) {
     if (suppressClick || isLocked()) return;
     if (e.altKey) {
@@ -2227,8 +2235,7 @@
     const free = e.target.closest(".free");
     if (free) {
       if (free.dataset.addDay === undefined) return; // how far over the day is
-      const before = free.dataset.before || (free.dataset.auto !== undefined ? AUTO : null);
-      return openCardEditor(null, { day: +free.dataset.addDay, before, room: free.dataset.h ? +free.dataset.h : null });
+      return openCardEditor(null, { day: +free.dataset.addDay, before: free.dataset.before || null, room: +free.dataset.h });
     }
     const cardEl = e.target.closest(".card");
     if (cardEl) openCardEditor(cardEl.dataset.id);
