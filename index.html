@@ -582,6 +582,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.273", date: "2026-09-26", changes: [
+      "The baseline shows how much of the week is fixed as a percentage instead of hours."
+    ] },
     { version: "1.263", date: "2026-09-26", changes: [
       "A day's total turns green or red the moment a resize or drag brings it to or past 24 hours, not only on release."
     ] },
@@ -658,6 +661,8 @@
   const clampHours = h => Math.min(DAY_HOURS, Math.max(STEP, snap(h)));
   const fmtNum = n => String(+n.toFixed(2));
   const fmtH = h => (h > 0 && h < 1 ? `${Math.round(h * 60)}m` : `${fmtNum(h)}h`);
+  // A share of the 168-hour week, e.g. "56%"; only none or all of it shows as 0% or 100%.
+  const fmtPct = h => { const p = Math.round(h / (7 * DAY_HOURS) * 100); return `${h > 0 && h < 7 * DAY_HOURS ? Math.min(99, Math.max(1, p)) : p}%`; };
   // Titles and names: runs of spaces become one, and a long one is cut without splitting an emoji.
   const cleanText = s => [...String(s).replace(/\s+/g, " ").trim()].slice(0, MAX_TITLE).join("").trim();
 
@@ -1040,7 +1045,7 @@
     });
     const fixed = sum(data.baseline.cards.map(c => c.hours));
     $("tabDate_base").textContent = "your default week";
-    $("tabStatus_base").textContent = fixed ? `${fmtH(fixed)} fixed` : "not set up yet";
+    $("tabStatus_base").textContent = fixed ? `${fmtPct(fixed)} fixed` : "not set up yet";
     $("tabStatus_base").className = "vb-status";
     document.querySelectorAll("#viewToggle .mode-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.view === view));
   }
@@ -1055,7 +1060,7 @@
     $("bankLabel").textContent = isBase ? "Baseline" : locked ? "Closed out" : "To Be Budgeted";
     $("bankLine").hidden = locked;
     $("bankNum").textContent = fmtH(b.free);
-    $("bankOf").textContent = isBase ? `left for everything else · ${fmtH(sum(b.totals))} fixed`
+    $("bankOf").textContent = isBase ? `left for everything else · ${fmtPct(sum(b.totals))} of the week fixed`
       : b.first ? `of ${b.pool}h left this week` : `of ${b.pool}h`;
 
     let msg, cls = "";
