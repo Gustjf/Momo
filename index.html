@@ -597,6 +597,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.384", date: "2026-09-26", changes: [
+      "Changing a card's colour with other days picked recolours that card on those days too."
+    ] },
     { version: "1.383", date: "2026-09-26", changes: [
       "A card can go inside another (drop Lunch onto Work, or pick Work under Inside): each keeps its own hours, and Work's block grows to fit both."
     ] },
@@ -1723,8 +1726,9 @@
     const parentOn = d => (holderOn(d) || { id: null }).id;
     const alone = inTitle ? days.filter(d => d !== null && !holderOn(d)) : [];
     const newCard = day => ({ id: newId(), title, hours, day, goalId, color: editing.color, base: false, parentId: parentOn(day) });
-    const merged = [], added = [], skipped = [];
+    const merged = [], added = [], skipped = [], recoloured = [];
     if (card) {
+      const recolour = !goalId && card.color !== editing.color;
       Object.assign(card, { title, hours, goalId, color: editing.color });
       // The card stays where it is if its day is still picked, else moves to the
       // first picked day that doesn't have a matching card there. Each other
@@ -1738,6 +1742,12 @@
         if (has(d)) return skipped.push(d);
         insertCard(list, newCard(d), null);
         added.push(d);
+      });
+      // The same card on the other picked days takes the colour picked here.
+      if (recolour) list.cards.forEach(c => {
+        if (c.day === null || !editing.days.has(c.day) || !sameKind(c, card) || c.color === editing.color) return;
+        c.color = editing.color;
+        if (!recoloured.includes(c.day)) recoloured.push(c.day);
       });
     } else {
       days.forEach(day => {
@@ -1757,7 +1767,8 @@
     const notes = [
       merged.length === 1 ? `Merged into ${merged[0].title} · ${fmtH(merged[0].hours)}` : merged.length ? `Merged into ${merged.length} matching cards` : "",
       added.length ? `Added to ${names(added)}` : "",
-      skipped.length ? `already on ${names(skipped)}` : "",
+      skipped.some(d => !recoloured.includes(d)) ? `already on ${names(skipped.filter(d => !recoloured.includes(d)))}` : "",
+      recoloured.length ? `recoloured on ${names(recoloured.sort((a, b) => a - b))}` : "",
       alone.length ? `on its own on ${names(alone)} (no ${$("cardIn").selectedOptions[0].textContent} there)` : ""
     ].filter(Boolean).join(" · ");
     if (notes) toast(notes[0].toUpperCase() + notes.slice(1), changed);
