@@ -14,7 +14,7 @@
     /* Card colours come from PALETTE (see COLOURS); slate is Free time's. --tint is how much of it a card's background takes. */
     --slate: #64748b;
     --tint: 14%;
-    --hour: 22px; /* height of one hour on the board */
+    --hour: 22px; /* height of one hour on the board, where nothing needs more room (see THE RULER) */
     color-scheme: light;
   }
   [data-theme="dark"] {
@@ -133,11 +133,16 @@
   .col.drop-target:not(.over) { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
   .col-body { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 6px; }
 
-  /* Cards: height follows hours (minus the gap, so a full day is exactly 24 hours tall), but
-     always fits two lines: the title across the whole card, then when it starts and its hours. */
-  .card { position: relative; flex: 0 0 auto; display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center; justify-content: space-between; gap: 0 6px; height: max(36px, calc(var(--h) * var(--hour) - 4px)); padding: 4px 7px 3px; overflow: hidden; border-radius: 5px; border-left: 3px solid var(--c); background: color-mix(in srgb, var(--c) var(--tint), var(--panel)); font-size: .8em; line-height: 1.25; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; transition: box-shadow .15s, opacity .15s; }
+  /* Cards: on a day, each is as tall as its time on the board's ruler (set as it's drawn), so cards
+     at the same time line up across the week, and fits two lines: the title across the whole card,
+     then when it starts and its hours. */
+  .card { position: relative; flex: 0 0 auto; display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center; justify-content: space-between; gap: 0 6px; padding: 4px 7px 3px; overflow: hidden; border-radius: 5px; border-left: 3px solid var(--c); background: color-mix(in srgb, var(--c) var(--tint), var(--panel)); font-size: .8em; line-height: 1.25; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; transition: box-shadow .15s, opacity .15s; }
   .card:hover { box-shadow: 0 1px 4px rgba(0, 0, 0, .14); }
   .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* A pinned card that the cards above run into is drawn at its own time, over them, set in far
+     enough to leave their edge to grab. */
+  .col-body > .card { margin: var(--mt, 0) 0 var(--mb, 0); }
+  .col-body > .card.clashing { margin-left: 25%; box-shadow: 0 1px 5px rgba(0, 0, 0, .3); }
   .card-title { flex: 1 0 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
   .card-hours { flex: 0 0 auto; color: var(--muted); font-size: .92em; font-variant-numeric: tabular-nums; }
   .card.is-goal > .card-title::before, .card.is-goal > .card-own > .card-title::before { content: ""; display: inline-block; box-sizing: border-box; width: 8px; height: 8px; margin: -2px 5px 0 0; border: 2px solid var(--c); border-radius: 50%; vertical-align: middle; }
@@ -173,18 +178,19 @@
   @media (hover: none) { .grip { display: none; } }
   /* A card with others inside it (lunch inside work) is one block: the cards
      inside go at its top, middle or bottom around its own hours, which split in
-     two around the middle ones. Each part is resized from its own bottom edge. */
-  .card.has-inner { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 3px; height: auto; min-height: max(24px, calc(var(--h) * var(--hour) - 4px)); padding: 0 3px 3px 0; }
-  .card-own { position: relative; flex: 1 0 auto; display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center; justify-content: space-between; gap: 0 6px; min-height: 20px; padding: 4px 4px 0 7px; }
+     two around the middle ones. Each part is resized from its own bottom edge. On a day, every part
+     is as tall as its time on the ruler; the cards inside are set in from the top and left. */
+  .card.has-inner { flex-direction: column; flex-wrap: nowrap; align-items: stretch; justify-content: flex-start; gap: 0; padding: 0 3px 0 0; }
+  .card-own { position: relative; flex: none; display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center; justify-content: space-between; gap: 0 6px; overflow: hidden; padding: 4px 4px 0 7px; }
   .card-own:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .card.inner { height: max(34px, calc(var(--h) * var(--hour) - 3px)); margin-left: 4px; padding: 2px 6px; border-radius: 4px; }
-  .col-body .card.has-inner > .card.inner:first-child { margin-top: 3px; }
+  .card-rest { padding: 0; } /* just its resize edge */
+  .card.inner { margin: 3px 0 0 4px; padding: 2px 6px; border-radius: 4px; }
   .card .card { font-size: 1em; }
   /* Parked cards (and their ghost while dragged) are one line, only as wide as they need. */
   .parked > .card-rest { display: none; }
   .card.parked { flex-wrap: nowrap; height: auto; align-items: center; padding: 5px 8px; }
-  .card.parked.has-inner { flex-direction: row; align-items: center; min-height: 0; padding: 3px; }
-  .parked > .card-own { flex-wrap: nowrap; min-height: 0; padding: 2px 4px; }
+  .card.parked.has-inner { flex-direction: row; align-items: center; gap: 3px; padding: 3px; }
+  .parked > .card-own { flex-wrap: nowrap; padding: 2px 4px; }
   .card.parked.inner { height: auto; margin: 0; padding: 2px 6px; }
   .parked .card-title { flex: 0 1 auto; }
   .parked .card-hours { font-size: 1em; }
@@ -196,10 +202,10 @@
   body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   body.is-resizing, body.is-resizing * { cursor: ns-resize !important; }
   body.is-dragging, body.is-resizing { user-select: none; -webkit-user-select: none; }
-  /* A day's free time is a dashed block saying how much it is, sized to match (short ones fit their
-     label): before a pinned card, and after the last card unless that runs to midnight. It's the one
+  /* A day's free time is a dashed block saying how much it is, as tall as its time on the ruler:
+     before a pinned card, and after the last card unless that runs to midnight. It's the one
      place on a day to add a card: click it. The last one fills the rest of the column. */
-  .free { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; min-height: max(24px, calc(var(--h) * var(--hour) - 4px)); padding: 0 4px; border: 1px dashed var(--border); border-radius: 5px; background: transparent; color: var(--muted); font-size: .76em; }
+  .free { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; padding: 0 4px; border: 1px dashed var(--border); border-radius: 5px; background: transparent; color: var(--muted); font-size: .76em; }
   .free.end { flex-grow: 1; }
   button.free:hover { background: var(--ring); border-color: var(--accent); color: var(--accent); }
   /* How far over a day is, where its free time would be: just a label. */
@@ -696,6 +702,7 @@
   let renderPending = false; // a redraw held back until a drag ends
   let clip = null;           // a card copied or cut for pasting: { key, id, cut, timer }
   let mouse = null;          // where the mouse is, for the copy & paste shortcuts: { x, y }
+  let ruler = { t: [0], y: [0], hour: 0 }; // the board's ruler as last drawn (see THE RULER)
 
   // Folder autosave & sync (see that section below).
   const syncSupported = typeof window.showDirectoryPicker === "function";
@@ -712,6 +719,10 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "4.012", date: "2026-09-26", changes: [
+      "Cards at the same time line up across every day: where a short card needs room for its text, that stretch of time is a little taller on all days instead of just its own.",
+      "A pinned card that the cards above run into is drawn at its own time, set in over them, instead of below them."
+    ] },
     { version: "4.011", date: "2026-09-26", changes: [
       "Free time is the one place on a day to add a card: a day whose last card runs to midnight has no + under it any more, and every free block says how much time it has, short ones too."
     ] },
@@ -1132,6 +1143,101 @@
     const { rows, end } = daySchedule(list, d);
     return rows.some(r => r.clash > 0) || (end > DAY_HOURS && dayTotal(list, d) <= DAY_HOURS);
   });
+
+  // ==========================================================================
+  // THE RULER
+  // ==========================================================================
+  // Every day on the board hangs from one ruler, 0000 at the top, so cards at
+  // the same time line up across the week. An hour is --hour tall, except
+  // where a short card or bit of free time on some day needs more room for
+  // its text: that stretch of time is taller on every day. Each piece of a
+  // day (a card, a part of a card with others inside it, free time) is as
+  // tall as its time on the ruler, less the space around it.
+  const GAP_PX = 4;   // between a day's pieces (.col-body's gap)
+  const INSET_PX = 3; // above a card inside another (its margin), and under the last one
+  // The least height of a piece, in pixels, to fit its text: two lines for a
+  // card (the title, then its time and hours), the label for free time, and
+  // the resize edge for the part of a card below the cards in its middle.
+  const MIN_PX = { card: 36, own: 36, inner: 34, rest: 8, free: 24 };
+
+  // The height of an hour on the board, in pixels.
+  const hourPx = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hour")) || 22;
+
+  // A day's pieces as the board draws them, each with a key (a card's id;
+  // "own:" or "rest:" and the id of a card with cards inside it, for its own
+  // hours above and below any in its middle; "gap:" and a pinned card's id,
+  // for the free time before it; "end", for the free time after the last
+  // card), when it starts and ends (s, e), the pixels of that taken by the
+  // space around it (less) and the least the rest can be (min: none for a
+  // card with cards inside, whose parts have theirs). A card on its own also
+  // has where the cards above it end (from) and where the next piece starts
+  // (to): not its own times when it runs into those cards.
+  function dayPieces(list, rows, times, end, locked) {
+    const pieces = [], add = (key, s, e, min, less, more) => pieces.push({ key, s, e, min, less, ...more });
+    let t = 0;
+    rows.forEach(({ card, start, end: e, gap }) => {
+      if (gap) add(`gap:${card.id}`, t, start, MIN_PX.free, GAP_PX);
+      const inner = innerCards(list, card);
+      add(card.id, start, e, inner.length ? 0 : MIN_PX.card, GAP_PX, { from: Math.max(t, start), to: Math.max(t, e) });
+      if (inner.length) {
+        const at = times.get(card.id).at, mid = inner.filter(c => c.pos === "middle"), half = mid.length ? snap(card.hours / 2) : card.hours;
+        const parts = [[`own:${card.id}`, at, half, MIN_PX.own, 0], ...inner.map(c => [c.id, times.get(c.id).at, c.hours, MIN_PX.inner, INSET_PX])];
+        if (mid.length) parts.push([`rest:${card.id}`, at + half + sum(mid.map(c => c.hours)), card.hours - half, MIN_PX.rest, 0]);
+        // The last part with any hours also takes the space under the block, and a card the room under it.
+        parts.forEach(([key, s, h, min, inset]) => add(key, s, s + h, min, inset + (h && s + h === e ? GAP_PX + inset : 0)));
+      }
+      t = Math.max(t, e);
+    });
+    if (end < DAY_HOURS && !locked) add("end", end, DAY_HOURS, MIN_PX.free, GAP_PX);
+    return pieces;
+  }
+
+  // The ruler for a board's pieces: ruler.t are the times where any of them
+  // starts or ends, and ruler.y how far down the board each is, in whole
+  // pixels. Each stretch between two is as tall as its hours at --hour, or
+  // taller where a piece needs it: shortest pieces first, each spreading what
+  // it lacks evenly over its time, so the longer ones around them can use
+  // the room those made.
+  function makeRuler(pieces) {
+    const hour = hourPx();
+    const t = [...new Set([0, DAY_HOURS, ...pieces.flatMap(p => [p.s, p.e])])].sort((a, b) => a - b);
+    const index = new Map(t.map((x, i) => [x, i])), h = t.slice(1).map((x, i) => (x - t[i]) * hour);
+    pieces.filter(p => p.min && p.e > p.s).sort((a, b) => (a.e - a.s) - (b.e - b.s)).forEach(p => {
+      const i = index.get(p.s), j = index.get(p.e), lack = p.min + p.less - sum(h.slice(i, j));
+      if (lack > 0) for (let k = i; k < j; k++) h[k] += lack * (t[k + 1] - t[k]) / (p.e - p.s);
+    });
+    let down = 0;
+    return { t, y: [0, ...h.map(x => Math.round(down += x))], hour };
+  }
+
+  // How far down the ruler a time is, in pixels (past its last time, an hour
+  // is --hour), and the time that far down.
+  function rulerY(h) {
+    const { t, y, hour } = ruler, n = t.length - 1;
+    if (h >= t[n]) return y[n] + (h - t[n]) * hour;
+    let i = 1;
+    while (t[i] < h) i++;
+    return y[i - 1] + (y[i] - y[i - 1]) * (h - t[i - 1]) / (t[i] - t[i - 1]);
+  }
+  function rulerTime(px) {
+    const { t, y, hour } = ruler, n = t.length - 1;
+    if (px >= y[n]) return t[n] + (px - y[n]) / hour;
+    let i = 1;
+    while (y[i] < px) i++;
+    return t[i - 1] + (t[i] - t[i - 1]) * (px - y[i - 1]) / (y[i] - y[i - 1]);
+  }
+
+  // Each piece's style by key: its height on the ruler, and for a card that
+  // runs into the cards above, the margins that draw it at its own time.
+  function pieceStyles(pieces) {
+    const px = v => Math.round(v * 100) / 100, styles = new Map();
+    pieces.forEach(p => {
+      let css = `height:${px(Math.max(0, rulerY(p.e) - rulerY(p.s) - p.less))}px`;
+      if (p.from > p.s) css += `;--mt:${px(rulerY(p.s) - rulerY(p.from))}px;--mb:${px(rulerY(p.to) - rulerY(p.e))}px`;
+      styles.set(p.key, css);
+    });
+    return styles;
+  }
 
   // ==========================================================================
   // COLOURS
@@ -1612,9 +1718,10 @@
   // those at the top, its own part (which takes the clicks, so buttons aren't
   // nested), those in the middle with the rest of its own part below them, and
   // those at the bottom. Its own part is resized from its lower edge. On a
-  // day each card shows when it starts (times, from startTimes), and one on
-  // its own has a pin.
-  function cardHTML(list, c, times = null) {
+  // day each card shows when it starts (times, from startTimes), one on its
+  // own has a pin, and each piece is sized to the ruler (styles, from
+  // pieceStyles).
+  function cardHTML(list, c, times = null, styles = null) {
     const g = goalById(c.goalId), inner = innerCards(list, c);
     const parent = c.parentId && list.cards.find(p => p.id === c.parentId);
     const when = times && times.get(c.id), pin = !!when && !parent && pinned(c);
@@ -1624,11 +1731,11 @@
     const button = `role="button" tabindex="0" aria-label="${esc(label)}" title="${esc(label)}"`;
     const own = `<span class="card-title">${esc(c.title)}</span>` + (when ? timeHTML(c, when, !parent) : "") + `<span class="card-hours">${fmtH(c.hours)}</span>`;
     const grip = c.day === null ? "" : `<span class="grip" aria-hidden="true"></span>`;
-    const at = pos => inner.filter(x => x.pos === pos).map(x => cardHTML(list, x, times)).join("");
-    const mid = at("middle");
-    return `<div class="card${g ? " is-goal" : ""}${inner.length ? " has-inner" : ""}${parent ? " inner" : ""}${pin ? " pinned" : ""}${c.day === null ? " parked" : ""}" data-id="${esc(c.id)}"${parent ? ` data-pos="${c.pos}"` : ""}${inner.length ? "" : ` ${button}`} style="--h:${blockHours(list, c)};--c:${cardColor(c)}">` +
-      (inner.length ? `${at("top")}<div class="card-own" ${button}>${own}${mid ? "" : grip}</div>` +
-        (mid ? `${mid}<div class="card-own card-rest" aria-hidden="true">${grip}</div>` : "") + at("bottom") : own + grip) + `</div>`;
+    const at = pos => inner.filter(x => x.pos === pos).map(x => cardHTML(list, x, times, styles)).join("");
+    const mid = at("middle"), size = key => (styles ? `${styles.get(key)};` : "");
+    return `<div class="card${g ? " is-goal" : ""}${inner.length ? " has-inner" : ""}${parent ? " inner" : ""}${pin ? " pinned" : ""}${when && when.clash ? " clashing" : ""}${c.day === null ? " parked" : ""}" data-id="${esc(c.id)}"${parent ? ` data-pos="${c.pos}"` : ""}${inner.length ? "" : ` ${button}`} style="${size(c.id)}--c:${cardColor(c)}">` +
+      (inner.length ? `${at("top")}<div class="card-own" style="${size(`own:${c.id}`)}" ${button}>${own}${mid ? "" : grip}</div>` +
+        (mid ? `${mid}<div class="card-own card-rest" style="${size(`rest:${c.id}`)}" aria-hidden="true">${grip}</div>` : "") + at("bottom") : own + grip) + `</div>`;
   }
 
   // When a card starts, then its pin if it's on its own: filled while
@@ -1639,21 +1746,20 @@
     return `<span class="card-time${when.clash || when.at >= DAY_HOURS ? " clash" : ""}"><span class="clock">${fmtClock(when.at)}</span>${pin}</span>`;
   }
 
-  // Free time on a day, sized to match and saying how much it is: before the
-  // pinned card beforeId, else after the day's last card. Clicking it adds a
-  // card there; it's the only place on a day that does. A plain spacer on a
-  // closed week.
-  const freeLabel = h => `+ ${fmtH(h)} free`;
-  function freeHTML(d, hours, beforeId, locked) {
-    const attrs = `class="free ${beforeId ? "gap" : "end"}"${beforeId ? ` data-before="${esc(beforeId)}"` : ""} style="--h:${hours}"`;
-    return locked ? `<div ${attrs}></div>` : `<button type="button" ${attrs} data-add-day="${d}" data-h="${hours}" aria-label="Add a card in ${fmtH(hours)} free">${freeLabel(hours)}</button>`;
+  // Free time on a day, sized to the ruler (style) and saying how much it is:
+  // before the pinned card beforeId, else after the day's last card. Clicking
+  // it adds a card there; it's the only place on a day that does. A plain
+  // spacer on a closed week.
+  function freeHTML(d, hours, beforeId, locked, style) {
+    const attrs = `class="free ${beforeId ? "gap" : "end"}"${beforeId ? ` data-before="${esc(beforeId)}"` : ""} style="${style}"`;
+    return locked ? `<div ${attrs}></div>` : `<button type="button" ${attrs} data-add-day="${d}" data-h="${hours}" aria-label="Add a card in ${fmtH(hours)} free">+ ${fmtH(hours)} free</button>`;
   }
 
   // What comes after a day's last card: the free time left before midnight,
   // nothing when that card runs to midnight, or how far over the day is — its
   // hours past 24, else how far its cards run past midnight (just a label).
-  function endHTML(d, room, total) {
-    if (room > 0) return freeHTML(d, room, null, false);
+  function endHTML(d, room, total, style) {
+    if (room > 0) return freeHTML(d, room, null, false, style);
     if (room === 0) return "";
     return `<div class="free over">${total > DAY_HOURS ? `${fmtH(total - DAY_HOURS)} over` : `${fmtH(-room)} past midnight`}</div>`;
   }
@@ -1662,9 +1768,11 @@
     const isBase = key === "base", locked = !isBase && list.closed;
     const today = key === thisWeekKey() ? dayIndex(todayStr()) : -1;
     const { totals } = budgetOf(list, key);
+    const plans = DAYS.map(d => dayPlan(list, d, locked));
+    ruler = makeRuler(plans.flatMap(p => p.pieces));
     $("board").classList.toggle("locked", locked);
     $("board").innerHTML = DAYS.map(d => {
-      const total = totals[d], { rows, end } = daySchedule(list, d), times = startTimes(list, rows);
+      const total = totals[d];
       const cls = ["col", total > DAY_HOURS ? "over" : total === DAY_HOURS ? "full" : "", d === today ? "today" : "", d < today ? "past" : ""].filter(Boolean).join(" ");
       const date = isBase ? "" : d === today ? "Today" : fmtShort(addDays(key, d));
       return `<div class="${cls}" data-day="${d}" data-total="${total}">
@@ -1673,9 +1781,23 @@
           <div class="col-total">Total: <span class="col-sum">${fmtNum(total)}</span>/24</div>
           <div class="col-bar"><span style="width:${Math.min(100, total / DAY_HOURS * 100)}%"></span></div>
         </div>
-        <div class="col-body">${rows.map(r => (r.gap ? freeHTML(d, r.gap, r.card.id, locked) : "") + cardHTML(list, r.card, times)).join("")}${locked ? "" : endHTML(d, DAY_HOURS - end, total)}</div>
+        <div class="col-body">${dayHTML(list, d, plans[d], total, locked)}</div>
       </div>`;
     }).join("");
+  }
+
+  // What the board needs to draw a day: its schedule, when each card starts,
+  // and its pieces for the ruler.
+  function dayPlan(list, d, locked) {
+    const { rows, end } = daySchedule(list, d), times = startTimes(list, rows);
+    return { rows, end, times, pieces: dayPieces(list, rows, times, end, locked) };
+  }
+
+  // A day's cards and free time, sized to the ruler.
+  function dayHTML(list, d, { rows, end, times, pieces }, total, locked) {
+    const styles = pieceStyles(pieces);
+    return rows.map(r => (r.gap ? freeHTML(d, r.gap, r.card.id, locked, styles.get(`gap:${r.card.id}`)) : "") + cardHTML(list, r.card, times, styles)).join("") +
+      (locked ? "" : endHTML(d, DAY_HOURS - end, total, styles.get("end")));
   }
 
   function renderGoals(list, key) {
@@ -1870,9 +1992,6 @@
     findTarget();
     drag.raf = requestAnimationFrame(autoScroll);
   }
-
-  // The height of an hour on the board, in pixels.
-  const hourPx = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hour")) || 22;
 
   // The same card on each of the board's other days (none for a parked card),
   // leaving pinned ones where they are. Where a day has more than one, it's
@@ -2158,48 +2277,31 @@
     e.preventDefault();
     const list = shownList(), card = list.cards.find(c => c.id === cardEl.dataset.id);
     if (!card) return;
-    const block = cardEl.closest(".col-body > .card"), top = list.cards.find(c => c.id === block.dataset.id) || card;
-    const hoursEl = cardEl.querySelector(":scope > .card-hours, :scope > .card-own > .card-hours");
-    resize = { id: card.id, key: shownKey(), el: cardEl, block, hoursEl, rest: blockHours(list, top) - card.hours, col: cardEl.closest(".col"), pointerId: e.pointerId, y0: e.clientY, scroll0: window.scrollY, h0: card.hours, hours: card.hours, x: e.clientX, y: e.clientY, raf: 0 };
+    // When its edge is: where the card ends, or its own hours below any cards in its middle.
+    const at = startTimes(list, daySchedule(list, card.day).rows).get(card.id).at;
+    const edge = at + card.hours + sum(innerCards(list, card).filter(c => c.pos === "middle").map(c => c.hours));
+    resize = { id: card.id, key: shownKey(), col: cardEl.closest(".col"), pointerId: e.pointerId, y0: e.clientY, scroll0: window.scrollY, edge, h0: card.hours, hours: card.hours, x: e.clientX, y: e.clientY, raf: 0 };
     cardEl.classList.add("resizing");
     document.body.classList.add("is-resizing");
     try { cardEl.setPointerCapture(e.pointerId); } catch (err) { /* the pointer is already gone */ }
     resize.raf = requestAnimationFrame(autoScroll);
   }
 
+  // The edge follows the pointer along the ruler, and the day is redrawn on
+  // the ruler as it is, so the times and free time below it keep up.
   function applyResize() {
-    const hours = clampHours(resize.h0 + (resize.y - resize.y0 + window.scrollY - resize.scroll0) / hourPx());
+    const moved = resize.y - resize.y0 + window.scrollY - resize.scroll0;
+    const hours = clampHours(resize.h0 + rulerTime(rulerY(resize.edge) + moved) - resize.edge);
     if (hours === resize.hours) return;
     resize.hours = hours;
-    resize.el.style.setProperty("--h", hours);
-    resize.block.style.setProperty("--h", resize.rest + hours); // the same element unless it's inside another
-    resize.hoursEl.textContent = fmtH(hours);
     const total = +resize.col.dataset.total - resize.h0 + hours;
     previewCol(resize.col, total);
-    const list = readList(resize.key);
-    showTimes(resize.col, { cards: list.cards.map(c => (c.id === resize.id ? { ...c, hours } : c)) }, total);
-  }
-
-  // Brings a day up to date with a resize under way, without redrawing its
-  // cards: the times on it, the free time before its pinned cards and at its end.
-  function showTimes(col, list, total) {
-    const day = +col.dataset.day, { rows, end } = daySchedule(list, day), times = startTimes(list, rows);
-    col.querySelectorAll(".card-time").forEach(el => {
-      const when = times.get(el.closest(".card").dataset.id);
-      if (!when) return;
-      el.querySelector(".clock").textContent = fmtClock(when.at);
-      el.classList.toggle("clash", when.clash > 0 || when.at >= DAY_HOURS);
-    });
-    col.querySelectorAll(".free.gap").forEach(el => {
-      const r = rows.find(x => x.card.id === el.dataset.before), gap = r ? r.gap : 0;
-      el.hidden = !gap;
-      el.style.setProperty("--h", gap);
-      el.textContent = freeLabel(gap);
-    });
-    // What's after the last card comes and goes as the day fills up or frees up.
-    const body = col.querySelector(".col-body"), last = body.querySelector(":scope > .free:not(.gap)"), html = endHTML(day, DAY_HOURS - end, total);
-    if (last) last.outerHTML = html;
-    else body.insertAdjacentHTML("beforeend", html);
+    const d = +resize.col.dataset.day, list = readList(resize.key), sim = { cards: list.cards.map(c => (c.id === resize.id ? { ...c, hours } : c)) };
+    resize.col.querySelector(".col-body").innerHTML = dayHTML(sim, d, dayPlan(sim, d, false), total, false);
+    const el = [...resize.col.querySelectorAll(".card")].find(x => x.dataset.id === resize.id);
+    el.classList.add("resizing");
+    try { el.setPointerCapture(resize.pointerId); } catch (err) { /* the pointer is already gone */ }
+    paintClip();
   }
 
   function endResize(commit) {
@@ -3738,6 +3840,8 @@
   window.addEventListener("blur", () => holdAlt(false));
   // Once a touch drag has started, the page mustn't scroll under the finger.
   document.addEventListener("touchmove", e => { if (drag || resize) e.preventDefault(); }, { passive: false });
+  // The ruler is in pixels: the board is redrawn when an hour's height changes (narrow screens have shorter hours).
+  window.addEventListener("resize", () => { if (hourPx() !== ruler.hour) renderAll(); });
 
   $("newGoalBtn").addEventListener("click", () => openGoalEditor(null));
   $("goalsList").addEventListener("click", e => {
