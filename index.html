@@ -7,7 +7,7 @@
 <style>
   :root {
     --bg: #f4f5f7; --panel: #ffffff; --border: #dcdfe4; --text: #1f2430; --muted: #6b7280;
-    --accent: #2563eb; --accent-dark: #1e40af; --good: #16a34a; --bad: #dc2626;
+    --accent: #2563eb; --accent-dark: #1e40af; --good: #16a34a; --bad: #dc2626; --warn: #d97706;
     --card-bg: #f8fafc; --btn-bg: #f8fafc; --ring: rgba(37, 99, 235, 0.15);
     --unsaved-bg: rgba(245, 158, 11, 0.15); --unsaved-border: rgba(245, 158, 11, 0.45);
     --good-bg: rgba(22, 163, 74, 0.12); --bad-bg: rgba(220, 38, 38, 0.1);
@@ -19,7 +19,7 @@
   }
   [data-theme="dark"] {
     --bg: #0f172a; --panel: #1e293b; --border: #334155; --text: #f8fafc; --muted: #94a3b8;
-    --accent: #3b82f6; --accent-dark: #2563eb; --good: #22c55e; --bad: #ef4444;
+    --accent: #3b82f6; --accent-dark: #2563eb; --good: #22c55e; --bad: #ef4444; --warn: #f59e0b;
     --card-bg: #0f172a; --btn-bg: #1e293b; --ring: rgba(59, 130, 246, 0.25);
     --unsaved-bg: rgba(245, 158, 11, 0.2); --unsaved-border: rgba(245, 158, 11, 0.5);
     --good-bg: rgba(34, 197, 94, 0.15); --bad-bg: rgba(239, 68, 68, 0.16);
@@ -186,13 +186,20 @@
   .goal-bar { display: flex; height: 6px; margin: 7px 0 6px 18px; border-radius: 3px; background: var(--border); overflow: hidden; }
   .goal-bar .done { background: var(--c); }
   .goal-bar .planned { background: color-mix(in srgb, var(--c) 40%, transparent); }
+  /* A goal in hours a week: its bar is the week's hours toward them, green once
+     there, yellow while short with enough hours left to budget, red without. */
+  .goal-bar.weekly { --s: var(--good); background: color-mix(in srgb, var(--s) 25%, var(--border)); }
+  .goal-bar.weekly.under { --s: var(--warn); }
+  .goal-bar.weekly.over { --s: var(--bad); }
+  .goal-bar.weekly .done { background: var(--s); }
   .goal-bottom { display: flex; align-items: center; justify-content: space-between; gap: 6px 10px; flex-wrap: wrap; margin-left: 18px; }
   .goal-meta { font-size: .8em; color: var(--muted); }
-  /* A goal that needs more than its most hours a week to stay on time. */
-  .goal.over-max { margin: 0 -8px; padding: 9px 8px; border-radius: 6px; background: var(--bad-bg); border-top-color: transparent; }
-  .goal.over-max + .goal { border-top-color: transparent; }
-  .goal.over-max .goal-name, .goal.over-max .goal-nums, .goal.over-max .goal-meta { color: var(--bad); }
-  .goal.over-max .goal-meta { font-weight: 600; }
+  /* A goal this plan can't meet: it needs more than its most hours a week to
+     stay on time, or the week is short of its hours a week with too few left. */
+  .goal.off-track { margin: 0 -8px; padding: 9px 8px; border-radius: 6px; background: var(--bad-bg); border-top-color: transparent; }
+  .goal.off-track + .goal { border-top-color: transparent; }
+  .goal.off-track .goal-name, .goal.off-track .goal-nums, .goal.off-track .goal-meta { color: var(--bad); }
+  .goal.off-track .goal-meta { font-weight: 600; }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: .75em; font-weight: 600; white-space: nowrap; }
   /* Pills on a fixed light background keep their dark text in both themes. */
   .badge.funded, .badge.reached { background: #dcfce7; color: #16a34a; }
@@ -473,17 +480,26 @@
       <label for="goalName">Goal</label>
       <input type="text" id="goalName" maxlength="40" placeholder="e.g. Write the novel" autocomplete="off">
     </div>
+    <div class="field mode-toggle" id="goalKind" role="group" aria-label="Measure the goal in">
+      <button type="button" class="mode-btn" data-kind="total">Total hours</button>
+      <button type="button" class="mode-btn" data-kind="weekly">Hours a week</button>
+    </div>
     <div class="field-row">
-      <div class="field">
+      <div class="field" id="goalTargetField">
         <label for="goalTarget">Total hours</label>
         <input type="number" id="goalTarget" min="0.25" max="100000" step="0.25" placeholder="e.g. 500">
+      </div>
+      <div class="field" id="goalPerWeekField" hidden>
+        <label for="goalPerWeek">Hours a week</label>
+        <input type="number" id="goalPerWeek" min="0.25" max="168" step="0.25" placeholder="e.g. 5">
       </div>
       <div class="field">
         <label for="goalDone">Done so far</label>
         <input type="number" id="goalDone" min="0" max="100000" step="0.25" placeholder="0">
       </div>
     </div>
-    <div class="field">
+    <p class="modal-hint" id="goalWeeklyNote" hidden>Each week it turns green once the week has these hours, yellow while it's short but enough hours are left to budget, and red when too few are.</p>
+    <div class="field" id="goalDueField">
       <label for="goalDueMonth">Finish by (optional)</label>
       <div class="date-parts">
         <select id="goalDueMonth" aria-label="Month"></select>
@@ -495,7 +511,7 @@
         <button type="button" class="secondary small" id="goalDueClearBtn">Clear</button>
       </div>
     </div>
-    <div class="field">
+    <div class="field" id="goalMaxField">
       <label for="goalMax">Most hours a week</label>
       <input type="number" id="goalMax" min="0.25" max="168" step="0.25" placeholder="10">
       <div class="note">The goal turns red when finishing by its date would take more than this.</div>
@@ -625,6 +641,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.798", date: "2026-09-26", changes: [
+      "Goals can be set in hours a week instead of total hours: their bar shows the week's hours, green once there, yellow while short with enough hours left to budget, red when not."
+    ] },
     { version: "1.698", date: "2026-09-26", changes: [
       "No more pop-up at the bottom describing each change: undo with Ctrl+Z, or on a phone with Undo in Developer Mode."
     ] },
@@ -780,7 +799,9 @@
   // ==========================================================================
   // weeks:    { "YYYY-MM-DD" (Monday): { cards, closed, u } }
   // baseline: { cards, u } — the default week, loaded into weeks in one click
-  // goals:    [{ id, name, target, start, due, maxWeek, color, log: { weekKey: hours }, deleted, u }]
+  // goals:    [{ id, name, target, perWeek, start, due, maxWeek, color, log: { weekKey: hours }, deleted, u }]
+  //           — a total to reach (target, maybe by a due date), or instead hours
+  //           a week (perWeek, with no target or due date), judged week by week
   // card:     { id, title, hours, day: 0-6 | null (parked), goalId, color, base, parentId, pos }
   // A day's cards show in the order they're listed. `u` is when that week,
   // baseline or goal last changed, which is how sync combines two devices' edits.
@@ -801,11 +822,13 @@
   const hasData = d => d.goals.length > 0 || d.baseline.cards.length > 0 || Object.values(d.weeks).some(w => w.cards.length > 0);
 
   // Goals. Hours done = what it started with plus every closed-out week's hours.
+  // One in hours a week has no total, so it's never reached.
   const liveGoals = () => data.goals.filter(g => !g.deleted);
   const goalById = id => (id && data.goals.find(g => g.id === id && !g.deleted)) || null;
+  const isWeekly = g => g.perWeek > 0;
   const goalDone = g => Math.max(0, g.start + sum(Object.values(g.log)));
   const goalLeft = g => Math.max(0, g.target - goalDone(g));
-  const isReached = g => goalDone(g) >= g.target;
+  const isReached = g => !isWeekly(g) && goalDone(g) >= g.target;
   // Weeks from the given week to a goal's finish-by week, both included.
   const weeksLeft = (g, key) => Math.floor(daysBetween(key, weekKeyOf(g.due)) / 7) + 1;
 
@@ -1061,7 +1084,8 @@
   function cleanGoal(g) {
     if (!isObj(g) || typeof g.id !== "string" || !g.id) return null;
     const name = typeof g.name === "string" ? cleanText(g.name) : "";
-    if (!name || !isPos(g.target)) return null;
+    const perWeek = isPos(g.perWeek) ? Math.min(7 * DAY_HOURS, Math.max(STEP, snap(g.perWeek))) : 0;
+    if (!name || !(isPos(g.target) || perWeek)) return null;
     const log = {}; // a week can't hold more than its 168 hours
     if (isObj(g.log)) Object.keys(g.log).forEach(k => {
       const h = isPos(g.log[k]) ? Math.min(7 * DAY_HOURS, snap(g.log[k])) : 0;
@@ -1070,9 +1094,10 @@
     return {
       id: g.id.slice(0, 40),
       name,
-      target: Math.min(MAX_GOAL_HOURS, Math.max(STEP, snap(g.target))),
+      target: perWeek ? 0 : Math.min(MAX_GOAL_HOURS, Math.max(STEP, snap(g.target))),
+      perWeek,
       start: isNum(g.start) ? Math.min(MAX_GOAL_HOURS, Math.max(-MAX_GOAL_HOURS, snap(g.start))) : 0,
-      due: isDueDate(g.due) ? g.due : "",
+      due: !perWeek && isDueDate(g.due) ? g.due : "",
       maxWeek: isPos(g.maxWeek) ? Math.min(7 * DAY_HOURS, Math.max(STEP, snap(g.maxWeek))) : GOAL_MAX_WEEK,
       color: Number.isInteger(g.color) && g.color >= 0 && g.color < PALETTE ? g.color : 0,
       log,
@@ -1282,7 +1307,11 @@
     const label = key === "base" ? "Baseline" : view === "this" ? "This week" : "Next week";
     const needKey = key === "base" ? nextWeekKey() : key; // the baseline is judged by next week's need
     const openWeeks = Object.values(data.weeks).filter(w => !w.closed);
+    // A goal in hours a week counts what's on the board (what was logged, once
+    // closed out), and can still get the hours left to budget (none once closed).
+    const closed = key !== "base" && list.closed, room = closed ? 0 : budgetOf(list, key).free;
     $("goalsList").innerHTML = goals.map(g => {
+      if (isWeekly(g)) return weeklyGoalHTML(g, closed ? g.log[key] || 0 : plannedFor(list, g.id), room, label, closed);
       const done = goalDone(g), planned = plannedFor(list, g.id);
       // The bar: solid for hours done, lighter for hours planned in weeks not closed out yet.
       const pending = sum(openWeeks.map(w => plannedFor(w, g.id)));
@@ -1308,12 +1337,27 @@
             : `<span class="badge ${overMax ? "over" : "under"}">${label}: ${fmtH(planned)} · ${fmtH(need - planned)} short</span>`;
         }
       }
-      return `<div class="goal${overMax ? " over-max" : ""}" data-goal-id="${esc(g.id)}" role="button" tabindex="0" style="--c:var(--c${g.color})">
+      return `<div class="goal${overMax ? " off-track" : ""}" data-goal-id="${esc(g.id)}" role="button" tabindex="0" style="--c:var(--c${g.color})">
         <div class="goal-top"><span class="goal-dot"></span><span class="goal-name">${esc(g.name)}</span><span class="goal-nums">${fmtNum(done)} / ${fmtNum(g.target)}h</span></div>
         <div class="goal-bar"><span class="done" style="width:${donePct}%"></span><span class="planned" style="width:${planPct}%"></span></div>
         <div class="goal-bottom"><span class="goal-meta">${meta}</span>${badge}</div>
       </div>`;
     }).join("");
+  }
+
+  // A goal in hours a week, for the week on screen, which has `got` of them and
+  // `room` hours left to budget: green (funded) once it has them all, yellow
+  // (under) while the rest still fits in room, red (over) when it doesn't.
+  function weeklyGoalHTML(g, got, room, label, closed) {
+    const short = Math.max(0, g.perWeek - got);
+    const status = !short ? "funded" : short <= room ? "under" : "over";
+    let meta = `${fmtH(goalDone(g))} done so far`;
+    if (status === "over" && !closed) meta += room ? ` — only ${fmtH(room)} left to budget` : " — no hours left to budget";
+    return `<div class="goal${status === "over" ? " off-track" : ""}" data-goal-id="${esc(g.id)}" role="button" tabindex="0" style="--c:var(--c${g.color})">
+        <div class="goal-top"><span class="goal-dot"></span><span class="goal-name">${esc(g.name)}</span><span class="goal-nums">${fmtH(g.perWeek)} a week</span></div>
+        <div class="goal-bar weekly ${status}"><span class="done" style="width:${Math.min(100, got / g.perWeek * 100)}%"></span></div>
+        <div class="goal-bottom"><span class="goal-meta">${meta}</span><span class="badge ${status}">${label}: ${fmtH(got)} · ${short ? `${fmtH(short)} short` : "Funded"}</span></div>
+      </div>`;
   }
 
   function renderTestBanner() {
@@ -1759,7 +1803,7 @@
 
   // What an editor holds, to tell whether closing it would lose changes.
   const cardFormState = () => JSON.stringify([$("cardTitle").value, $("cardHours").value, $("cardGoal").value, $("cardIn").value, $("cardPos").value, [...editing.days].sort(), editing.color]);
-  const goalFormState = () => JSON.stringify(["goalName", "goalTarget", "goalDone", "goalDueMonth", "goalDueDay", "goalDueYear", "goalMax"].map(id => $(id).value).concat(editingGoal.color));
+  const goalFormState = () => JSON.stringify(["goalName", "goalTarget", "goalPerWeek", "goalDone", "goalDueMonth", "goalDueDay", "goalDueYear", "goalMax"].map(id => $(id).value).concat(editingGoal.color, editingGoal.kind));
   function hasPendingInput(id) {
     if (id === "cardOverlay") return !!editing && cardFormState() !== editing.snapshot;
     if (id === "goalOverlay") return !!editingGoal && goalFormState() !== editingGoal.snapshot;
@@ -1897,7 +1941,7 @@
   // Hours fields go on the 15-minute grid within their range, so a number past
   // either end becomes that end. null when empty; NaN when it isn't a number,
   // or isn't above zero where it has to be.
-  const HOUR_RANGES = { cardHours: [STEP, DAY_HOURS], goalTarget: [STEP, MAX_GOAL_HOURS], goalDone: [0, MAX_GOAL_HOURS], goalMax: [STEP, 7 * DAY_HOURS] };
+  const HOUR_RANGES = { cardHours: [STEP, DAY_HOURS], goalTarget: [STEP, MAX_GOAL_HOURS], goalPerWeek: [STEP, 7 * DAY_HOURS], goalDone: [0, MAX_GOAL_HOURS], goalMax: [STEP, 7 * DAY_HOURS] };
   function readHours(id) {
     const v = readNumber(id), [min, max] = HOUR_RANGES[id];
     if (v === null || Number.isNaN(v)) return v;
@@ -2059,29 +2103,43 @@
   function openGoalEditor(id) {
     const g = id ? goalById(id) : null;
     if (id && !g) return;
-    editingGoal = { id: g ? g.id : null, color: g ? g.color : freeGoalColor() };
+    const weekly = !!g && isWeekly(g);
+    editingGoal = { id: g ? g.id : null, color: g ? g.color : freeGoalColor(), kind: weekly ? "weekly" : "total" };
     $("goalModalTitle").textContent = g ? "Edit goal" : "New goal";
     $("goalName").value = g ? g.name : "";
-    $("goalTarget").value = g ? fmtNum(g.target) : "";
+    $("goalTarget").value = g && !weekly ? fmtNum(g.target) : "";
+    $("goalPerWeek").value = weekly ? fmtNum(g.perWeek) : "";
     $("goalDone").value = g ? fmtNum(goalDone(g)) : "";
     setDue(g ? g.due : "");
     $("goalMax").value = fmtNum(g ? g.maxWeek : GOAL_MAX_WEEK);
     $("goalDeleteBtn").hidden = !g;
     renderSwatches("goalColors", editingGoal.color);
+    renderGoalKind();
     editingGoal.snapshot = goalFormState();
     openOverlay("goalOverlay");
     $("goalName").focus();
   }
 
+  // A goal is a total (maybe by a date, within its most hours a week) or hours
+  // a week; the editor shows the fields of the one picked.
+  function renderGoalKind() {
+    const weekly = editingGoal.kind === "weekly";
+    document.querySelectorAll("#goalKind .mode-btn").forEach(b => b.classList.toggle("active", b.dataset.kind === editingGoal.kind));
+    ["goalTargetField", "goalDueField", "goalMaxField"].forEach(id => { $(id).hidden = weekly; });
+    ["goalPerWeekField", "goalWeeklyNote"].forEach(id => { $(id).hidden = !weekly; });
+  }
+
   function saveGoal() {
     if (!editingGoal) return;
+    const weekly = editingGoal.kind === "weekly";
     const name = cleanText($("goalName").value);
-    const target = readHours("goalTarget"), done = readHours("goalDone"), due = readDue(), maxWeek = readHours("goalMax");
+    const target = readHours("goalTarget"), perWeek = readHours("goalPerWeek"), done = readHours("goalDone"), due = readDue(), maxWeek = readHours("goalMax");
     if (!name) { $("goalName").focus(); return alert("Give the goal a name."); }
-    if (!isNum(target)) { $("goalTarget").focus(); return alert("Enter the total hours this goal needs, e.g. 500."); }
+    if (weekly && !isNum(perWeek)) { $("goalPerWeek").focus(); return alert("Enter the hours a week this goal needs, e.g. 5."); }
+    if (!weekly && !isNum(target)) { $("goalTarget").focus(); return alert("Enter the total hours this goal needs, e.g. 500."); }
     if (Number.isNaN(done)) { $("goalDone").focus(); return alert("Enter the hours done so far as a number, or leave it empty."); }
-    if (Number.isNaN(maxWeek)) { $("goalMax").focus(); return alert(`Enter the most hours a week as a number, e.g. ${GOAL_MAX_WEEK}.`); }
-    if (due === null) {
+    if (!weekly && Number.isNaN(maxWeek)) { $("goalMax").focus(); return alert(`Enter the most hours a week as a number, e.g. ${GOAL_MAX_WEEK}.`); }
+    if (!weekly && due === null) {
       $(Number.isNaN(readNumber("goalDueDay")) ? "goalDueDay" : "goalDueYear").focus();
       return alert("The finish-by day and year need to be numbers — or leave them empty.");
     }
@@ -2092,11 +2150,13 @@
       return alert("That goal was changed on another device, so nothing was saved.");
     }
     if (!g) {
-      g = { id: newId(), name, target: 0, start: 0, due: "", maxWeek: GOAL_MAX_WEEK, color: 0, log: {}, deleted: false, u: 0 };
+      g = { id: newId(), name, target: 0, perWeek: 0, start: 0, due: "", maxWeek: GOAL_MAX_WEEK, color: 0, log: {}, deleted: false, u: 0 };
       data.goals.push(g);
     }
     // "Done so far" sets the starting amount, on top of which close-outs add up.
-    Object.assign(g, { name, target, due, maxWeek: maxWeek || GOAL_MAX_WEEK, color: editingGoal.color, start: (done || 0) - sum(Object.values(g.log)) });
+    // Hours a week have no total or date (the most hours a week stays as it was).
+    Object.assign(g, { name, color: editingGoal.color, start: (done || 0) - sum(Object.values(g.log)) },
+      weekly ? { target: 0, perWeek, due: "" } : { target, perWeek: 0, due, maxWeek: maxWeek || GOAL_MAX_WEEK });
     dismissOverlay("goalOverlay");
     save();
     renderAll();
@@ -2275,9 +2335,16 @@
   }
 
   // "288h → 280h to go": the goal before and after this week's hours count.
+  // One in hours a week has no total: "40h → 45h done", and how the week did.
   function updateCloseOutResult(i) {
     const r = closing.rows[i], g = goalById(r.goalId);
     if (!g) return;
+    if (isWeekly(g)) {
+      const before = Math.max(0, goalDone(g) - (g.log[closing.key] || 0));
+      $(`coResult${i}`).innerHTML = `${fmtH(before)} → <strong>${fmtH(before + r.done)}</strong> done · ` +
+        (r.done >= g.perWeek ? `${fmtH(g.perWeek)} a week met ✓` : `${fmtH(g.perWeek - r.done)} short of ${fmtH(g.perWeek)} a week`);
+      return;
+    }
     const before = Math.max(0, g.target - (goalDone(g) - (g.log[closing.key] || 0)));
     const after = Math.max(0, before - r.done);
     $(`coResult${i}`).innerHTML = after === 0 && before > 0
@@ -2382,7 +2449,7 @@
       `- App date: ${todayStr()}${dayOffset ? ` (time travel +${dayOffset} days, test mode)` : ""}`,
       `- Weeks stored: ${Object.keys(data.weeks).length} (${Object.values(data.weeks).filter(w => w.closed).length} closed)`,
       `- Cards this week / next week / baseline: ${weekOf(tk).cards.length} / ${weekOf(nk).cards.length} / ${data.baseline.cards.length}`,
-      `- Goals: ${liveGoals().length} (+${data.goals.length - liveGoals().length} deleted)`,
+      `- Goals: ${liveGoals().length}, ${liveGoals().filter(isWeekly).length} in hours a week (+${data.goals.length - liveGoals().length} deleted)`,
       `- On screen: ${fmtH(b.free)} to be budgeted, ${b.over.length} overbooked day(s), ${fmtH(b.parked)} parked`,
       `- Weeks waiting for close-out: ${reviewWeeks().length}`,
       `- Undo steps: ${undoStack.length}`,
@@ -2878,6 +2945,12 @@
   $("cardHours").addEventListener("input", renderInnerNote);
   Object.keys(HOUR_RANGES).forEach(id => $(id).addEventListener("change", tidyHours));
 
+  $("goalKind").addEventListener("click", e => {
+    const btn = e.target.closest("button[data-kind]");
+    if (!btn || !editingGoal) return;
+    editingGoal.kind = btn.dataset.kind;
+    renderGoalKind();
+  });
   $("goalSaveBtn").addEventListener("click", saveGoal);
   $("goalDeleteBtn").addEventListener("click", deleteGoal);
   $("goalCancelBtn").addEventListener("click", () => dismissOverlay("goalOverlay"));
