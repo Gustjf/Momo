@@ -247,13 +247,6 @@
   .co-result { grid-column: 1 / -1; font-size: .82em; color: var(--muted); }
   .co-result strong { color: var(--text); }
 
-  /* --- Toast (undo) --- */
-  .toast { position: fixed; left: 50%; bottom: 20px; z-index: 10003; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px); padding: 8px 8px 8px 14px; border-radius: 8px; background: #1f2430; color: #f8fafc; font-size: .86em; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); }
-  [data-theme="dark"] .toast { background: #f8fafc; color: #1f2430; }
-  .toast-btn { flex: 0 0 auto; padding: 5px 10px; background: transparent; color: #93c5fd; font-weight: 700; }
-  .toast-btn:hover { background: rgba(147, 197, 253, .15); }
-  [data-theme="dark"] .toast-btn { color: #2563eb; }
-
   /* --- Developer mode (Ctrl+9) & bug reports --- */
   .dev-panel { display: none; position: fixed; right: 14px; }
   body.dev-mode .dev-panel { display: block; }
@@ -376,7 +369,6 @@
 </div>
 
 <div id="dropLines"></div>
-<div class="toast" id="toast" hidden role="status"><span id="toastText"></span><button class="toast-btn" id="toastUndo">Undo</button></div>
 <div class="corner-tag">
   <div class="app-version-tag" id="appVersionTag"></div>
   <div class="dev-badge" id="devBadge" role="button" aria-pressed="false" title="Developer mode (Ctrl+9)">DEV</div>
@@ -385,6 +377,13 @@
   <button class="modal-close" id="devPanelClose" aria-label="Close">&times;</button>
   <h3>Developer Mode</h3>
   <div class="dev-version">Version <span id="devVersionNum"></span></div>
+  <div class="dev-block">
+    <div class="dev-block-head">Undo steps: <strong id="devUndoCount">0</strong></div>
+    <div class="dev-actions">
+      <button class="secondary small" id="devUndoBtn">Undo</button>
+    </div>
+    <div class="dev-hint">Takes back your last change, the same as Ctrl+Z.</div>
+  </div>
   <div class="dev-block">
     <div class="dev-block-head">Time travel (testing) &middot; today is <strong id="devToday"></strong></div>
     <div class="dev-actions">
@@ -569,7 +568,6 @@
   const POSITION_TEXT = { top: "at the top of", middle: "in the middle of", bottom: "at the bottom of" };
   const COLOR_ORDER = [0, 2, 5, 3, 1, 6, 4]; // the order new goals and cards take colours in (slate stays Free time's)
   const UNDO_MAX = 40;
-  const TOAST_MS = 6000;
   const BUG_REPORTS_MAX = 20;
   const DEBUG_LOG_MAX = 40;
   const SYNC_CHECK_MS = 5000;    // how often the sync folder is checked for other devices' saves
@@ -611,7 +609,6 @@
   let resize = null;         // the resize in progress
   let suppressClick = false; // the click that ends a drag isn't a tap
   let renderPending = false; // a redraw held back until a drag ends
-  let toastTimer = 0;
 
   // Folder autosave & sync (see that section below).
   const syncSupported = typeof window.showDirectoryPicker === "function";
@@ -628,6 +625,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.698", date: "2026-09-26", changes: [
+      "No more pop-up at the bottom describing each change: undo with Ctrl+Z, or on a phone with Undo in Developer Mode."
+    ] },
     { version: "1.688", date: "2026-09-26", changes: [
       "Picking other days in a card's editor makes that card on those days match it — the same hours and colour — even when you haven't changed them, and even where it sits somewhere else that day."
     ] },
@@ -1119,27 +1119,19 @@
   }
 
   // ==========================================================================
-  // UNDO & TOAST
+  // UNDO
   // ==========================================================================
+  // Ctrl/Cmd+Z, or Undo in Developer Mode (for phones), steps back one change.
   function undo() {
     if (!undoStack.length) return;
     data = JSON.parse(undoStack.pop());
     save({ undo: false });
-    hideToast();
     renderAll();
   }
 
-  // A short message at the bottom, with an Undo button for changes worth one.
-  function toast(text, withUndo) {
-    $("toastText").textContent = text;
-    $("toastUndo").hidden = !withUndo;
-    $("toast").hidden = false;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(hideToast, TOAST_MS);
-  }
-  function hideToast() {
-    clearTimeout(toastTimer);
-    $("toast").hidden = true;
+  function renderDevUndo() {
+    $("devUndoCount").textContent = undoStack.length;
+    $("devUndoBtn").disabled = !undoStack.length;
   }
 
   // ==========================================================================
@@ -1155,6 +1147,7 @@
     renderGoals(list, key);
     renderCloseOutControls();
     renderTestBanner();
+    renderDevUndo();
   }
 
   function renderTabs() {
@@ -1523,8 +1516,7 @@
   // after that day's card like the one just above the spot (Commute dropped
   // under Sleep goes under Sleep on every day). A day without that card goes
   // by the nearest one above it that the day has, else the card goes to the
-  // top. A card with nothing there to go inside stays where it is. Each move
-  // notes the title of the card it goes after (after), for the toast.
+  // top. A card with nothing there to go inside stays where it is.
   function groupMoves(list, ids, spot) {
     const skip = new Set(ids), byId = id => list.cards.find(c => c.id === id);
     const parent = spot.parentId ? byId(spot.parentId) : null;
@@ -1534,14 +1526,14 @@
     return ids.map(byId).filter(c => c && c.day !== null).map(c => {
       const p = !parent ? null : c.day === spot.day ? parent : list.cards.find(x => x.day === c.day && !x.parentId && !skip.has(x.id) && sameKind(x, parent));
       if (parent && !canHold(list, p, c)) return { id: c.id, day: c.day, stay: true };
-      let after = ref[k - 1] || null, beforeId = spot.beforeId;
+      let beforeId = spot.beforeId;
       if (c.day !== spot.day) {
         const mine = at(c.day, p);
-        after = ref.slice(0, k).reverse().map(r => mine.find(m => sameKind(m, r))).find(Boolean) || null;
+        const after = ref.slice(0, k).reverse().map(r => mine.find(m => sameKind(m, r))).find(Boolean) || null;
         const before = after ? mine[mine.indexOf(after) + 1] : mine[0];
         beforeId = before ? before.id : null;
       }
-      return { id: c.id, day: c.day, parentId: p ? p.id : null, pos: spot.pos, beforeId, after: after && after.title };
+      return { id: c.id, day: c.day, parentId: p ? p.id : null, pos: spot.pos, beforeId };
     });
   }
 
@@ -1674,42 +1666,21 @@
     document.body.classList.remove("is-dragging");
     $("parking").classList.remove("drop-target");
     swallowClick();
-    let into = null, changed = false, putIn = null, moved = "";
     if (commit && d.target && d.target.moves) {
-      moved = dropGroup(listFor(d.key), d.id, d.twins, d.target.spot);
-      changed = save();
+      dropGroup(listFor(d.key), d.id, d.twins, d.target.spot);
+      save();
     } else if (commit && d.target) {
-      const t = d.target, list = listFor(d.key), card = list.cards.find(c => c.id === d.id);
-      if (t.parent && card && card.parentId !== t.parent.id) putIn = card;
-      into = moveCard(list, d.id, t.day, t.before ? t.before.dataset.id : null, t.parent ? t.parent.id : null, t.pos);
-      changed = save();
+      const t = d.target;
+      moveCard(listFor(d.key), d.id, t.day, t.before ? t.before.dataset.id : null, t.parent ? t.parent.id : null, t.pos);
+      save();
     }
     renderAll();
-    if (changed && moved) toast(moved, true);
-    else if (changed && into) toast(`Merged into ${into.title} · ${fmtH(into.hours)}`, true);
-    else if (changed && putIn) toast(`Put ${putIn.title} ${POSITION_TEXT[d.target.pos]} ${d.target.parent.title} · ${fmtH(blockHours(readList(d.key), d.target.parent))} in all`, true);
   }
 
-  // Drops a group drag: each card goes to its spot on its own day. Returns what
-  // happened, for the toast.
+  // Drops a group drag: each card goes to its spot on its own day.
   function dropGroup(list, id, twins, spot) {
-    const card = list.cards.find(c => c.id === id), parent = spot.parentId && list.cards.find(c => c.id === spot.parentId);
-    if (!card) return "";
-    const moves = groupMoves(list, [id, ...twins], spot), title = card.title;
-    const days = ms => ms.map(m => m.day).sort((a, b) => a - b).map(d => DAY_NAMES[d]).join(", ");
-    const went = moves.filter(m => !m.stay), stayed = moves.filter(m => m.stay);
-    if (!went.length) return "";
-    went.forEach(m => moveCard(list, m.id, m.day, m.beforeId, m.parentId, m.pos));
-    // "Moved Commute after Sleep on Mon, Tue · to the top on Sat": the days by what they went after.
-    const byAfter = new Map();
-    went.forEach(m => {
-      const key = (m.after || "").toLowerCase();
-      if (!byAfter.has(key)) byAfter.set(key, { after: m.after, moves: [] });
-      byAfter.get(key).moves.push(m);
-    });
-    return (parent ? [`Put ${title} ${POSITION_TEXT[spot.pos]} ${parent.title} on ${days(went)}`]
-      : [...byAfter.values()].map((g, i) => `${i ? "" : `Moved ${title} `}${g.after ? `after ${g.after}` : "to the top"} on ${days(g.moves)}`))
-      .concat(stayed.length ? `left as is on ${days(stayed)}` : []).join(" · ");
+    if (!list.cards.some(c => c.id === id)) return;
+    groupMoves(list, [id, ...twins], spot).filter(m => !m.stay).forEach(m => moveCard(list, m.id, m.day, m.beforeId, m.parentId, m.pos));
   }
 
   // Resizing: dragging a card's bottom edge changes its hours in 15-minute steps.
@@ -1961,7 +1932,7 @@
     if (editing.id && !card) {
       dismissOverlay("cardOverlay");
       renderAll();
-      return toast("That card was changed on another device, so nothing was saved.", false);
+      return alert("That card was changed on another device, so nothing was saved.");
     }
     // On each day it goes inside that day's card picked under Inside (the one
     // it's already inside, where it is), at the position picked under Where,
@@ -1974,8 +1945,6 @@
     };
     const parentOn = d => (holderOn(d) || { id: null }).id;
     const newCard = day => ({ id: newId(), title, hours, day, goalId, color: editing.color, base: false, parentId: parentOn(day), pos });
-    const merged = [], added = [], skipped = [], recoloured = [], rehoured = [];
-    let placed = days; // the days the card was put on, for "on its own on …"
     if (card) {
       Object.assign(card, { title, hours, goalId, color: editing.color });
       // The card stays where it is if its day is still picked, else moves to the
@@ -1990,51 +1959,26 @@
       };
       const open = days.filter(d => !twinOn(d));
       const home = editing.days.has(card.day) ? card.day : open.length ? open[0] : days[0];
-      const into = !inPlace(card, home, parentOn(home), pos) ? moveCard(list, card.id, home, null, parentOn(home), pos) : settle(list, card);
-      if (into) merged.push(into);
+      if (!inPlace(card, home, parentOn(home), pos)) moveCard(list, card.id, home, null, parentOn(home), pos);
+      else settle(list, card);
       days.filter(d => d !== home).forEach(d => {
         const twin = twinOn(d);
-        if (!twin) {
-          insertCard(list, newCard(d), null);
-          return added.push(d);
-        }
-        skipped.push(d);
-        if (twin.hours === hours) return;
-        twin.hours = hours;
-        rehoured.push(d);
+        if (twin) twin.hours = hours;
+        else insertCard(list, newCard(d), null);
       });
-      placed = [home].concat(added);
       if (!goalId) list.cards.forEach(c => {
-        if (c.day === null || !editing.days.has(c.day) || !sameKind(c, card) || c.color === editing.color) return;
-        c.color = editing.color;
-        if (!recoloured.includes(c.day)) recoloured.push(c.day);
+        if (c.day !== null && editing.days.has(c.day) && sameKind(c, card)) c.color = editing.color;
       });
     } else {
       days.forEach(day => {
         const c = newCard(day), into = mergeTarget(list, c, day, c.parentId, c.pos);
-        if (into) {
-          into.hours += hours;
-          merged.push(into);
-        } else {
-          insertCard(list, c, null);
-        }
+        if (into) into.hours += hours;
+        else insertCard(list, c, null);
       });
     }
     dismissOverlay("cardOverlay");
-    const changed = save();
+    save();
     renderAll();
-    const alone = inTitle ? placed.filter(d => d !== null && !holderOn(d)) : [];
-    const names = ds => ds.map(d => DAY_NAMES[d]).join(", ");
-    const untouched = skipped.filter(d => !recoloured.includes(d) && !rehoured.includes(d));
-    const notes = [
-      merged.length === 1 ? `Merged into ${merged[0].title} · ${fmtH(merged[0].hours)}` : merged.length ? `Merged into ${merged.length} matching cards` : "",
-      added.length ? `Added to ${names(added)}` : "",
-      untouched.length ? `already on ${names(untouched)}` : "",
-      rehoured.length ? `changed to ${fmtH(hours)} on ${names(rehoured)}` : "",
-      recoloured.length ? `recoloured on ${names(recoloured.sort((a, b) => a - b))}` : "",
-      alone.length ? `on its own on ${names(alone)} (no ${$("cardIn").selectedOptions[0].textContent} there)` : ""
-    ].filter(Boolean).join(" · ");
-    if (notes) toast(notes[0].toUpperCase() + notes.slice(1), changed);
   }
 
   function deleteCard() {
@@ -2047,7 +1991,6 @@
       list.cards = list.cards.filter(c => c !== card);
       inner.forEach(c => { c.parentId = null; settle(list, c); });
       save();
-      toast(`Deleted ${card.title}${inner.length ? ` · kept ${inner.map(c => c.title).join(", ")}` : ""}`, true);
     }
     renderAll();
   }
@@ -2146,7 +2089,7 @@
     if (editingGoal.id && !g) {
       dismissOverlay("goalOverlay");
       renderAll();
-      return toast("That goal was changed on another device, so nothing was saved.", false);
+      return alert("That goal was changed on another device, so nothing was saved.");
     }
     if (!g) {
       g = { id: newId(), name, target: 0, start: 0, due: "", maxWeek: GOAL_MAX_WEEK, color: 0, log: {}, deleted: false, u: 0 };
@@ -2166,7 +2109,6 @@
     dismissOverlay("goalOverlay");
     save();
     renderAll();
-    toast(`Deleted ${g.name}`, true);
   }
 
   // ==========================================================================
@@ -2191,8 +2133,6 @@
     tidyNesting(week);
     save();
     renderAll();
-    const left = budgetOf(week, key).free;
-    toast(reload ? "Baseline reloaded" : `Baseline loaded — ${fmtH(left)} left to budget`, true);
   }
 
   // Copies the week before's plan into the week on screen, replacing what's
@@ -2206,7 +2146,6 @@
     week.cards = copyCards(prev.cards);
     save();
     renderAll();
-    toast(`Copied ${fmtWeek(addDays(key, -7))} — ${fmtH(budgetOf(week, key).free)} left to budget`, true);
   }
 
   // Makes the week on screen the new baseline: its cards on days (not parked)
@@ -2219,7 +2158,6 @@
     data.baseline.cards = copyCards(cards, { base: false });
     save();
     renderAll();
-    toast("Saved as your baseline", true);
   }
 
   // Gives every counted day's free hours the job "Free time" — the deliberate
@@ -2240,7 +2178,6 @@
     if (!added) return;
     save();
     renderAll();
-    toast(`${fmtH(added)} of Free time added`, true);
   }
 
   function clearBoard() {
@@ -2250,7 +2187,6 @@
     listFor(key).cards = [];
     save();
     renderAll();
-    toast(key === "base" ? "Baseline cleared" : "Week cleared", true);
   }
 
   function startSampleBaseline() {
@@ -2368,18 +2304,15 @@
     closing = null;
     closeOverlay("closeOutOverlay");
     if (week && !week.closed) {
-      const reached = [];
       rows.forEach(r => {
         const g = goalById(r.goalId);
         if (!g) return;
-        const was = isReached(g), worked = snap(r.done);
+        const worked = snap(r.done);
         if (worked > 0) g.log[key] = worked;
         else delete g.log[key];
-        if (!was && isReached(g)) reached.push(g.name);
       });
       week.closed = true;
       save();
-      toast(reached.length ? `Closed out — goal reached: ${reached.join(", ")} 🎉` : `Week of ${fmtWeek(key)} closed out`, true);
     }
     renderAll();
     checkCloseOuts();
@@ -2399,7 +2332,6 @@
     ensureWeek(key).closed = true;
     save();
     renderAll();
-    toast("This week is closed out — there was no goal work to review", true);
   }
 
   // Takes a closed week's goal hours back off and opens it again.
@@ -2412,7 +2344,6 @@
     closeOutLater = false;
     renderAll();
     checkCloseOuts();
-    toast("Week reopened — its goal hours were taken back off", true);
   }
 
   // The app can stay open past midnight or into a new week (a phone tab, say):
@@ -2990,11 +2921,11 @@
   });
   $("syncBtn").addEventListener("click", () => (syncState === "off" ? chooseSyncFolder() : stopSync()));
   $("syncBannerBtn").addEventListener("click", () => (syncState === "paused" ? reconnectSync() : chooseSyncFolder()));
-  $("toastUndo").addEventListener("click", undo);
   $("testBannerBtn").addEventListener("click", () => location.reload());
 
   $("devBadge").addEventListener("click", toggleDevMode);
   $("devPanelClose").addEventListener("click", toggleDevMode);
+  $("devUndoBtn").addEventListener("click", undo);
   $("devPlusDayBtn").addEventListener("click", () => timeTravel(1));
   $("devPlusWeekBtn").addEventListener("click", () => timeTravel(7));
   $("reportBugLink").addEventListener("click", e => { e.preventDefault(); openBugReportModal(); });
