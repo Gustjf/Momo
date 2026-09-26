@@ -609,7 +609,7 @@
   const TOUCH_GROUP_MS = 400;    // held still this much longer, a touch drag picks up the same card on every day
   const TOUCH_SLOP_PX = 8;
   const EDGE_PX = 48;            // the page and board scroll while dragging this close to an edge
-  const CLIP_MS = 5000;          // a copied or cut card waits this long for a paste
+  const CLIP_MS = 5000;          // a copied or cut card waits this long for the next paste
   // Backup file format. Bump only when the shape changes in a way import has to migrate.
   const DATA_SCHEMA_VERSION = 1;
   // "Start from a sample" in an empty baseline.
@@ -658,6 +658,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.999", date: "2026-09-26", changes: [
+      "A copied card stays ready for 5 more seconds after each paste, so it can go onto several days in a row; a cut card moves on the first paste and later pastes are copies of it."
+    ] },
     { version: "1.998", date: "2026-09-26", changes: [
       "Copy (Ctrl+C) or cut (Ctrl+X) the card under the mouse and paste it (Ctrl+V) right after the card the mouse is on, even on another week: it's shaded blue for a copy or amber for a cut until it's pasted, Esc is pressed, or 5 seconds pass."
     ] },
@@ -1814,11 +1817,13 @@
   // COPY, CUT & PASTE
   // ==========================================================================
   // Keyboard only: Ctrl/⌘+C copies the card under the mouse (or the one
-  // focused from the keyboard) and Ctrl/⌘+X cuts it; it's shaded until
+  // focused from the keyboard) and Ctrl/⌘+X cuts it; it's shaded while
   // Ctrl/⌘+V puts it where the mouse is — a copy, or after a cut the card
-  // itself — on this board or another. The shading clears once it's pasted,
-  // on Esc, or CLIP_MS after the last copy or cut, and then there's nothing
-  // left to paste. A card with others inside it takes them along.
+  // itself and then copies of it — on this board or another. Each paste
+  // gives another CLIP_MS for the next, so a card can go onto several days in
+  // a row. The shading clears on Esc or CLIP_MS after the last copy, cut or
+  // paste, and then there's nothing left to paste. A card with others inside
+  // it takes them along.
 
   // What a shortcut points at: the card focused from the keyboard, else
   // whatever is under the mouse.
@@ -1835,10 +1840,15 @@
     if (!cardEl || press || drag || resize || (cut && isLocked())) return false;
     const card = shownList().cards.find(c => c.id === cardEl.dataset.id);
     if (!card) return false;
-    if (clip) clearTimeout(clip.timer);
-    clip = { key: shownKey(), id: card.id, cut, timer: setTimeout(clearClip, CLIP_MS) };
+    holdClip(shownKey(), card.id, cut);
     paintClip();
     return true;
+  }
+
+  // Makes a card the one to paste, for the next CLIP_MS.
+  function holdClip(key, id, cut) {
+    if (clip) clearTimeout(clip.timer);
+    clip = { key, id, cut, timer: setTimeout(clearClip, CLIP_MS) };
   }
 
   function clearClip() {
@@ -1887,7 +1897,7 @@
 
   // Adds a card from elsewhere (a copy, or one cut from another board), with
   // the cards inside it, to a board at a spot, as a drop there would: into a
-  // matching card in that place, if there is one.
+  // matching card in that place, if there is one. Returns that card, if so.
   function placeCard(list, [card, ...inner], spot) {
     const parentId = inner.length ? null : spot.parentId;
     Object.assign(card, { day: spot.day, parentId, pos: parentId ? spot.pos : card.pos });
@@ -1896,13 +1906,16 @@
     const into = mergeTarget(list, card, card.day, parentId, card.pos);
     if (into) absorb(list, into, card);
     else insertCard(list, card, spot.beforeId);
+    return into;
   }
 
   // Ctrl+V: pastes the card copied or cut where the shortcuts point. A cut
   // card from the board on screen moves the way a drag does; a copy, or one
   // cut from another board, is added (as your own card, which reloading the
-  // baseline leaves alone). False when there's nothing to paste, or nowhere
-  // to put it.
+  // baseline leaves alone). It stays ready for the next paste: a cut card,
+  // having moved, as a copy of itself from then on — unless it folded into a
+  // card there, which leaves nothing to copy. False when there's nothing to
+  // paste, or nowhere to put it.
   function pasteCard() {
     const at = clip && !press && !drag && !resize && !isLocked() && pointedAt();
     if (!at) return false;
@@ -1915,16 +1928,19 @@
     const spot = pasteSpot(readList(key), from, card, moving, at);
     if (!spot) return false;
     const list = listFor(key), group = [card, ...innerCards(from, card)];
+    let into = null;
     if (moving) {
-      moveCard(list, card.id, spot.day, spot.beforeId, spot.parentId, spot.pos);
+      into = moveCard(list, card.id, spot.day, spot.beforeId, spot.parentId, spot.pos);
     } else if (clip.cut) {
       from.cards = from.cards.filter(c => !group.includes(c));
       group.forEach(c => { c.base = false; });
-      placeCard(list, group, spot);
+      into = placeCard(list, group, spot);
     } else {
       placeCard(list, copyCards(group, { base: false }), spot);
     }
-    clearClip();
+    if (!clip.cut) holdClip(clip.key, clip.id, false);
+    else if (into) clearClip();
+    else holdClip(key, card.id, false);
     save();
     renderAll();
     return true;
