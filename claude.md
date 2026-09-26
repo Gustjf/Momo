@@ -37,7 +37,7 @@ Git Workflow
 
 Project information/original prompt below: reference this when it makes sense, unless explicit told otherwise. confirm when commands that are given that grievously violate this.
 
- use LocalStore and JSON import/export with auto sync. Use my other project, located in the currently connected github, Project Wan Shi Tong, as a reference for a lot of the UI aspects. Do not modify Project Wan Shi Tong in any way. It is read only. This application is supposed to be a "YNAB" style budgeting method but for time. Spend some extra time thinking about the best way to apply that - that is the most important philosophy. i want something very simple, minimalist that I can use to organize my thoughts. 
+ use LocalStore and JSON import/export with auto sync. Use my other project, located in the currently connected github, Bosco (Gustjf/Bosco), as a reference for a lot of the UI aspects. Do not modify Bosco in any way. It is read only. This application is supposed to be a "YNAB" style budgeting method but for time. Spend some extra time thinking about the best way to apply that - that is the most important philosophy. i want something very simple, minimalist that I can use to organize my thoughts. 
 
     Kanban-Style Board: The primary interface relies on a drag-and-drop card system rather than a spreadsheet grid.
     The "To Be Budgeted" Bank: A staging area holding any unassigned hours from the weekly 168-hour pool.
