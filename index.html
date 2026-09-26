@@ -133,20 +133,20 @@
   .col.drop-target:not(.over) { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
   .col-body { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 6px; }
 
-  /* Cards: height follows hours (minus the gap, so a full day is exactly 24 hours tall). */
-  .card { position: relative; flex: 0 0 auto; display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; height: max(24px, calc(var(--h) * var(--hour) - 4px)); padding: 4px 7px; overflow: hidden; border-radius: 5px; border-left: 3px solid var(--c); background: color-mix(in srgb, var(--c) var(--tint), var(--panel)); font-size: .8em; line-height: 1.25; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; transition: box-shadow .15s, opacity .15s; }
+  /* Cards: height follows hours (minus the gap, so a full day is exactly 24 hours tall), but
+     always fits two lines: the title across the whole card, then when it starts and its hours. */
+  .card { position: relative; flex: 0 0 auto; display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center; justify-content: space-between; gap: 0 6px; height: max(36px, calc(var(--h) * var(--hour) - 4px)); padding: 4px 7px 3px; overflow: hidden; border-radius: 5px; border-left: 3px solid var(--c); background: color-mix(in srgb, var(--c) var(--tint), var(--panel)); font-size: .8em; line-height: 1.25; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation; transition: box-shadow .15s, opacity .15s; }
   .card:hover { box-shadow: 0 1px 4px rgba(0, 0, 0, .14); }
   .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .card-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-  .card-hours { flex: 0 0 auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .card-title { flex: 1 0 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .card-hours { flex: 0 0 auto; color: var(--muted); font-size: .92em; font-variant-numeric: tabular-nums; }
   .card.is-goal > .card-title::before, .card.is-goal > .card-own > .card-title::before { content: ""; display: inline-block; box-sizing: border-box; width: 8px; height: 8px; margin: -2px 5px 0 0; border: 2px solid var(--c); border-radius: 50%; vertical-align: middle; }
   /* When a card starts, on the 24-hour clock (red when the cards above run
-     into it, or past midnight), after its pin: filled in the card's colour
+     into it, or past midnight), then its pin: filled in the card's colour
      while pinned, otherwise only there on hover. A pinned card stays put. */
   .card-time { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 1px; color: var(--muted); font-size: .92em; font-variant-numeric: tabular-nums; }
-  .card-time + .card-title { flex: 1 1 auto; }
   .card-time.clash { color: var(--bad); font-weight: 700; }
-  .pin { display: inline-flex; margin: -2px 0 -2px -4px; padding: 2px; border-radius: 3px; color: var(--muted); cursor: pointer; visibility: hidden; }
+  .pin { display: inline-flex; margin: -2px 0 -2px 1px; padding: 2px; border-radius: 3px; color: var(--muted); cursor: pointer; visibility: hidden; }
   .pin:hover { background: var(--ring); color: var(--text); }
   .pin-icon { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
   .pin.on { visibility: visible; color: var(--c); }
@@ -174,17 +174,20 @@
   /* A card with others inside it (lunch inside work) is one block: the cards
      inside go at its top, middle or bottom around its own hours, which split in
      two around the middle ones. Each part is resized from its own bottom edge. */
-  .card.has-inner { flex-direction: column; align-items: stretch; gap: 3px; height: auto; min-height: max(24px, calc(var(--h) * var(--hour) - 4px)); padding: 0 3px 3px 0; }
-  .card-own { position: relative; flex: 1 0 auto; display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; min-height: 20px; padding: 4px 4px 0 7px; }
+  .card.has-inner { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 3px; height: auto; min-height: max(24px, calc(var(--h) * var(--hour) - 4px)); padding: 0 3px 3px 0; }
+  .card-own { position: relative; flex: 1 0 auto; display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center; justify-content: space-between; gap: 0 6px; min-height: 20px; padding: 4px 4px 0 7px; }
   .card-own:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .card.inner { height: max(20px, calc(var(--h) * var(--hour) - 3px)); margin-left: 4px; padding: 2px 6px; border-radius: 4px; }
+  .card.inner { height: max(34px, calc(var(--h) * var(--hour) - 3px)); margin-left: 4px; padding: 2px 6px; border-radius: 4px; }
   .col-body .card.has-inner > .card.inner:first-child { margin-top: 3px; }
-  .parking .card-rest { display: none; }
   .card .card { font-size: 1em; }
-  .parking .card { height: auto; align-items: center; padding: 5px 8px; }
-  .parking .card.has-inner { flex-direction: row; align-items: center; min-height: 0; padding: 3px; }
-  .parking .card-own { min-height: 0; padding: 2px 4px; }
-  .parking .card.inner { height: auto; margin: 0; padding: 2px 6px; }
+  /* Parked cards (and their ghost while dragged) are one line, only as wide as they need. */
+  .parked > .card-rest { display: none; }
+  .card.parked { flex-wrap: nowrap; height: auto; align-items: center; padding: 5px 8px; }
+  .card.parked.has-inner { flex-direction: row; align-items: center; min-height: 0; padding: 3px; }
+  .parked > .card-own { flex-wrap: nowrap; min-height: 0; padding: 2px 4px; }
+  .card.parked.inner { height: auto; margin: 0; padding: 2px 6px; }
+  .parked .card-title { flex: 0 1 auto; }
+  .parked .card-hours { font-size: 1em; }
   .board.locked .card { cursor: default; }
   .card.ghost { position: fixed; left: 0; top: 0; z-index: 10001; margin: 0; pointer-events: none; opacity: .95; box-shadow: 0 8px 24px rgba(0, 0, 0, .25); }
   /* A group drag's ghost is a stack: the same card on several days. */
@@ -693,6 +696,10 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "3.010", date: "2026-09-26", changes: [
+      "Cards are easier to read: the title gets the whole top line, with the start time, pin and hours on the line below, and short cards are a little taller to fit both.",
+      "A parked card dragged over a day shows its whole title beside the time it would start at."
+    ] },
     { version: "3.009", date: "2026-09-26", changes: [
       "Alt+click a card (Option+click on a Mac) to delete it straight away: while Alt is held, the card under the mouse is shaded red, and Ctrl+Z brings it back."
     ] },
@@ -1434,21 +1441,21 @@
       (inner.length ? ` + ${inner.map(x => `${x.title} ${fmtH(x.hours)}`).join(" + ")} = ${fmtH(blockHours(list, c))}` : parent ? `, ${POSITION_TEXT[c.pos]} ${parent.title}` : "") +
       (!when ? "" : `, ${pin ? `pinned at ${fmtClock(c.pin)}` : `from ${fmtClock(when.at)}`}${when.clash ? ` — the cards above run ${fmtH(when.clash)} into it` : when.at >= DAY_HOURS ? " — past midnight" : ""}`);
     const button = `role="button" tabindex="0" aria-label="${esc(label)}" title="${esc(label)}"`;
-    const own = (when ? timeHTML(c, when, !parent) : "") + `<span class="card-title">${esc(c.title)}</span><span class="card-hours">${fmtH(c.hours)}</span>`;
+    const own = `<span class="card-title">${esc(c.title)}</span>` + (when ? timeHTML(c, when, !parent) : "") + `<span class="card-hours">${fmtH(c.hours)}</span>`;
     const grip = c.day === null ? "" : `<span class="grip" aria-hidden="true"></span>`;
     const at = pos => inner.filter(x => x.pos === pos).map(x => cardHTML(list, x, times)).join("");
     const mid = at("middle");
-    return `<div class="card${g ? " is-goal" : ""}${inner.length ? " has-inner" : ""}${parent ? " inner" : ""}${pin ? " pinned" : ""}" data-id="${esc(c.id)}"${parent ? ` data-pos="${c.pos}"` : ""}${inner.length ? "" : ` ${button}`} style="--h:${blockHours(list, c)};--c:var(--c${g ? g.color : c.color})">` +
+    return `<div class="card${g ? " is-goal" : ""}${inner.length ? " has-inner" : ""}${parent ? " inner" : ""}${pin ? " pinned" : ""}${c.day === null ? " parked" : ""}" data-id="${esc(c.id)}"${parent ? ` data-pos="${c.pos}"` : ""}${inner.length ? "" : ` ${button}`} style="--h:${blockHours(list, c)};--c:var(--c${g ? g.color : c.color})">` +
       (inner.length ? `${at("top")}<div class="card-own" ${button}>${own}${mid ? "" : grip}</div>` +
         (mid ? `${mid}<div class="card-own card-rest" aria-hidden="true">${grip}</div>` : "") + at("bottom") : own + grip) + `</div>`;
   }
 
-  // When a card starts, after its pin if it's on its own: filled while
+  // When a card starts, then its pin if it's on its own: filled while
   // pinned, else there to pin it where it is.
   function timeHTML(c, when, canPin) {
     const tip = pinned(c) ? `Pinned at ${fmtClock(c.pin)} — unpin` : `Pin at ${fmtClock(Math.min(DAY_HOURS - STEP, when.at))}`;
     const pin = canPin ? `<span class="pin${pinned(c) ? " on" : ""}" title="${tip}" aria-hidden="true"><svg class="pin-icon" viewBox="0 0 24 24"><use href="#i-pin"/></svg></span>` : "";
-    return `<span class="card-time${when.clash || when.at >= DAY_HOURS ? " clash" : ""}">${pin}<span class="clock">${fmtClock(when.at)}</span></span>`;
+    return `<span class="card-time${when.clash || when.at >= DAY_HOURS ? " clash" : ""}"><span class="clock">${fmtClock(when.at)}</span>${pin}</span>`;
   }
 
   // The dashed block under a day's cards: the free time left at the end of
@@ -1653,13 +1660,14 @@
     clearTimeout(p.timer);
     const list = shownList(), card = list.cards.find(c => c.id === p.id);
     const rect = p.el.getBoundingClientRect();
-    const ghost = p.el.cloneNode(true);
+    const ghost = p.el.cloneNode(true), parked = !ghost.querySelector(".card-time");
     ghost.classList.add("ghost");
     ghost.removeAttribute("tabindex");
-    ghost.style.width = `${rect.width}px`;
+    if (!parked) ghost.style.width = `${rect.width}px`;
     ghost.style.height = `${rect.height}px`;
-    // A parked card has no time yet: the ghost gets one to show where it lands.
-    if (!ghost.querySelector(".card-time")) (ghost.querySelector(":scope > .card-own") || ghost).insertAdjacentHTML("afterbegin", `<span class="card-time" hidden><span class="clock"></span></span>`);
+    // A parked card has no time yet: the ghost gets one to show where it lands,
+    // and widens to fit it rather than squeezing the title.
+    if (parked) (ghost.querySelector(":scope > .card-own") || ghost).insertAdjacentHTML("afterbegin", `<span class="card-time" hidden><span class="clock"></span></span>`);
     document.body.appendChild(ghost);
     const twins = twinsOf(list, card), twinIds = new Set(twins.map(c => c.id));
     drag = { id: p.id, key: shownKey(), el: p.el, home: p.el.closest("#board .col"), hours: card ? blockHours(list, card) : 0, ghost, pointerId: p.pointerId, offX: p.x0 - rect.left, offY: p.y0 - rect.top, x0: p.x, y0: p.y, x: p.x, y: p.y, target: null, raf: 0,
