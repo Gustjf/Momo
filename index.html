@@ -235,6 +235,8 @@
   .field-head { display: flex; align-items: center; justify-content: space-between; gap: 4px 10px; flex-wrap: wrap; margin-bottom: 5px; }
   .field-head label { margin: 0; }
   .presets { display: flex; gap: 5px; margin-left: auto; }
+  .presets button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .presets button.active:hover { background: var(--accent-dark); }
   .date-parts { display: flex; gap: 8px; }
   .date-parts > * { min-width: 0; }
   .date-parts select { flex: 2 1 0; }
@@ -500,7 +502,15 @@
     </div>
     <p class="modal-hint" id="goalWeeklyNote" hidden>Each week it turns green once the week has these hours, yellow while it's short but enough hours are left to budget, and red when too few are.</p>
     <div class="field" id="goalDueField">
-      <label for="goalDueMonth">Finish by (optional)</label>
+      <div class="field-head">
+        <label for="goalDueMonth">Finish by (optional)</label>
+        <span class="presets" id="goalSeasons">
+          <button type="button" class="secondary small" data-season="0">Spring</button>
+          <button type="button" class="secondary small" data-season="1">Summer</button>
+          <button type="button" class="secondary small" data-season="2">Fall</button>
+          <button type="button" class="secondary small" data-season="3">Winter</button>
+        </span>
+      </div>
       <div class="date-parts">
         <select id="goalDueMonth" aria-label="Month"></select>
         <input type="number" id="goalDueDay" min="1" max="31" step="1" inputmode="numeric" placeholder="Day" aria-label="Day">
@@ -641,6 +651,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.898", date: "2026-09-26", changes: [
+      "A goal's finish-by date has Spring, Summer, Fall and Winter buttons: each picks the day before that season starts (its true first day in North America), and clicking it again moves on a year."
+    ] },
     { version: "1.798", date: "2026-09-26", changes: [
       "Goals can be set in hours a week instead of total hours: their bar shows the week's hours, green once there, yellow while short with enough hours left to budget, red when not."
     ] },
@@ -2074,13 +2087,17 @@
     return y === null && due < today ? on(+today.slice(0, 4) + 1) : due;
   }
 
-  // Under the fields: the date they add up to.
+  // Under the fields: the date they add up to, and the season that starts the
+  // next day, if one does.
   function renderDueNote() {
-    const due = readDue();
+    const due = readDue(), season = seasonBefore(due);
+    const after = !due ? "" : due < todayStr() ? " — already passed"
+      : season ? ` · ${SEASONS[season.s]} starts ${fmtShort(addDays(due, 1))}` : "";
     $("goalDueNote").textContent = due === null ? "The day and year need to be numbers."
-      : due ? `${fmtDate(due, { weekday: "short", year: "numeric", month: "short", day: "numeric" })}${due < todayStr() ? " — already passed" : ""}` : "";
+      : due ? `${fmtDate(due, { weekday: "short", year: "numeric", month: "short", day: "numeric" })}${after}` : "";
     $("goalDueNote").classList.toggle("bad", due === null);
     $("goalDueFoot").hidden = due === "";
+    renderSeasons(season);
   }
 
   // Leaving a finish-by field tidies what was typed: 28 becomes 2028, and a day
@@ -2098,6 +2115,73 @@
     $("goalDueDay").value = d || "";
     $("goalDueYear").value = y || "";
     renderDueNote();
+  }
+
+  // Seasons start on the equinoxes and solstices, the astronomical seasons.
+  // Their instants come from Meeus's Astronomical Algorithms (ch. 27), within
+  // a minute of a full ephemeris: checked against one, every season from 2000
+  // to 2150 falls on the same day in every North American time zone.
+  const SEASONS = ["spring", "summer", "fall", "winter"];
+  const SEASON_BASE = [ // March equinox, June solstice, September equinox, December solstice
+    [2451623.80984, 365242.37404, 0.05169, -0.00411, -0.00057],
+    [2451716.56767, 365241.62603, 0.00325, 0.00888, -0.00030],
+    [2451810.21715, 365242.01767, -0.11575, 0.00337, 0.00078],
+    [2451900.05952, 365242.74049, -0.06223, -0.00823, 0.00032]
+  ];
+  const SEASON_TERMS = [ // periodic corrections: amplitude, phase, speed
+    [485, 324.96, 1934.136], [203, 337.23, 32964.467], [199, 342.08, 20.186], [182, 27.85, 445267.112],
+    [156, 73.14, 45036.886], [136, 171.52, 22518.443], [77, 222.54, 65928.934], [74, 296.72, 3034.906],
+    [70, 243.58, 9037.513], [58, 119.81, 33718.147], [52, 297.17, 150.678], [50, 21.02, 2281.226],
+    [45, 247.54, 29929.562], [44, 325.15, 31555.956], [29, 60.93, 4443.417], [18, 155.12, 67555.328],
+    [17, 288.79, 4562.452], [16, 198.04, 62894.029], [14, 199.76, 31436.921], [12, 95.39, 14577.848],
+    [12, 287.11, 31931.756], [12, 320.81, 34777.259], [9, 227.73, 1222.114], [8, 15.45, 16859.074]
+  ];
+
+  // The instant a season starts in a year (0 spring … 3 winter), in ms since
+  // 1970 UTC. The formulas give a Julian day on astronomers' steady clock,
+  // which runs ahead of the slowing Earth: 69 s now, more each century.
+  function seasonMs(year, s) {
+    const deg = Math.PI / 180, Y = (year - 2000) / 1000, [a, b, c, d, e] = SEASON_BASE[s];
+    const jde0 = a + Y * (b + Y * (c + Y * (d + Y * e)));
+    const T = (jde0 - 2451545) / 36525, W = (35999.373 * T - 2.47) * deg;
+    const S = sum(SEASON_TERMS.map(([A, B, C]) => A * Math.cos((B + C * T) * deg)));
+    const jde = jde0 + 0.00001 * S / (1 + 0.0334 * Math.cos(W) + 0.0007 * Math.cos(2 * W));
+    return (jde - 2440587.5) * DAY_MS - (69 + 32 * ((year - 2026) / 100) ** 2) * 1000;
+  }
+
+  // The day a season starts in North America: the date of its equinox or
+  // solstice on this device's clock when that's on North American time
+  // (Hawaii to Newfoundland), else on Eastern time (EDT, or EST in December).
+  function seasonStart(year, s) {
+    const ms = seasonMs(year, s), behind = new Date(ms).getTimezoneOffset(); // minutes behind UTC
+    return msDate(ms - (behind >= 150 && behind <= 600 ? behind : s === 3 ? 300 : 240) * 60000);
+  }
+
+  // The season a finish-by date is the day before the start of: { s, year }, or null.
+  function seasonBefore(due) {
+    if (!due) return null;
+    const start = addDays(due, 1), year = +start.slice(0, 4);
+    const s = SEASONS.findIndex((_, i) => seasonStart(year, i) === start);
+    return s < 0 ? null : { s, year };
+  }
+
+  // What a season button picks: the day before that season next starts after
+  // today, or, with that season's date already picked (cur), the year after's.
+  function seasonDue(s, cur) {
+    const today = todayStr();
+    let year = cur && cur.s === s ? cur.year + 1 : +today.slice(0, 4);
+    while (seasonStart(year, s) <= today) year++;
+    return year > YEAR_MAX ? null : addDays(seasonStart(year, s), -1);
+  }
+
+  // The season buttons: the picked date's season lights up, and each says
+  // when the season it would pick starts.
+  function renderSeasons(cur) {
+    document.querySelectorAll("#goalSeasons button").forEach(btn => {
+      const s = +btn.dataset.season, due = seasonDue(s, cur);
+      btn.classList.toggle("active", !!cur && cur.s === s);
+      btn.title = due ? `${btn.textContent} starts ${fmtDate(addDays(due, 1), { weekday: "short", year: "numeric", month: "short", day: "numeric" })} — finish the day before` : "";
+    });
   }
 
   function openGoalEditor(id) {
@@ -2966,6 +3050,12 @@
     $(id).addEventListener("change", tidyDue);
   });
   $("goalDueClearBtn").addEventListener("click", () => setDue(""));
+  $("goalSeasons").addEventListener("click", e => {
+    const btn = e.target.closest("button[data-season]");
+    if (!btn || !editingGoal) return;
+    const due = seasonDue(+btn.dataset.season, seasonBefore(readDue()));
+    if (due) setDue(due);
+  });
 
   $("closeOutConfirmBtn").addEventListener("click", confirmCloseOut);
   $("closeOutLaterBtn").addEventListener("click", closeOutLaterClick);
