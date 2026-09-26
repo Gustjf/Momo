@@ -168,7 +168,7 @@
   body.is-dragging, body.is-resizing { user-select: none; -webkit-user-select: none; }
   /* The dashed block under a day's cards is its free time; click it to add a card. */
   .free { flex: 1 0 auto; display: flex; align-items: flex-start; justify-content: center; min-height: max(28px, calc(var(--h) * var(--hour) - 4px)); padding: 6px 4px; border: 1px dashed var(--border); border-radius: 5px; background: transparent; color: var(--muted); font-size: .76em; }
-  .free:hover { background: var(--ring); border-color: var(--accent); color: var(--accent); }
+  button.free:hover { background: var(--ring); border-color: var(--accent); color: var(--accent); }
   .free.slim { flex: 0 0 auto; min-height: 26px; padding: 4px; }
   .free.over { border-color: var(--bad); color: var(--bad); font-weight: 600; }
 
@@ -625,6 +625,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.585", date: "2026-09-26", changes: [
+      "A day's “over” block is just a label now: clicking it no longer opens a new card."
+    ] },
     { version: "1.584", date: "2026-09-26", changes: [
       "A card inside another goes at its top, middle or bottom: drop it on that part of the card, or pick it under Where. Any number can share a position."
     ] },
@@ -1237,11 +1240,12 @@
   }
 
   // The dashed block under a day's cards: its free hours (sized to match), or
-  // a slim add button once the day is full, or how far over it is.
+  // a slim add button once the day is full, or how far over it is (just a label:
+  // an overbooked day has no room for another card).
   function freeHTML(d, free) {
     if (free > 0) return `<button type="button" class="free" data-add-day="${d}" style="--h:${free}">+ ${fmtH(free)} free</button>`;
     if (free === 0) return `<button type="button" class="free slim" data-add-day="${d}" aria-label="Add a card to ${DAY_LONG[d]}">+</button>`;
-    return `<button type="button" class="free slim over" data-add-day="${d}">${fmtH(-free)} over</button>`;
+    return `<div class="free slim over">${fmtH(-free)} over</div>`;
   }
 
   function renderBoard(list, key) {
@@ -1603,7 +1607,7 @@
   function onBoardClick(e) {
     if (suppressClick || isLocked()) return;
     const free = e.target.closest(".free");
-    if (free) return openCardEditor(null, { day: +free.dataset.addDay });
+    if (free) return free.dataset.addDay !== undefined && openCardEditor(null, { day: +free.dataset.addDay });
     const cardEl = e.target.closest(".card");
     if (cardEl) openCardEditor(cardEl.dataset.id);
   }
