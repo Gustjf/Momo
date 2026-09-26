@@ -625,6 +625,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.586", date: "2026-09-26", changes: [
+      "Changing a card's hours with other days picked gives that card the same hours on those days too."
+    ] },
     { version: "1.585", date: "2026-09-26", changes: [
       "A day's “over” block is just a label now: clicking it no longer opens a new card."
     ] },
@@ -1823,14 +1826,16 @@
     const parentOn = d => (holderOn(d) || { id: null }).id;
     const alone = inTitle ? days.filter(d => d !== null && !holderOn(d)) : [];
     const newCard = day => ({ id: newId(), title, hours, day, goalId, color: editing.color, base: false, parentId: parentOn(day), pos });
-    const merged = [], added = [], skipped = [], recoloured = [];
+    const merged = [], added = [], skipped = [], recoloured = [], rehoured = [];
     if (card) {
-      const recolour = !goalId && card.color !== editing.color;
+      const recolour = !goalId && card.color !== editing.color, rehour = card.hours !== hours;
       Object.assign(card, { title, hours, goalId, color: editing.color });
       // The card stays where it is if its day is still picked, else moves to the
       // first picked day that doesn't have a matching card there. Each other
-      // picked day gets a copy — unless it already has one, which is left as it is.
-      const has = d => d !== null && list.cards.some(c => c !== card && inPlace(c, d, parentOn(d), pos) && sameKind(c, card));
+      // picked day gets a copy — unless it already has one, which stays where it
+      // is but takes any new colour or hours picked here.
+      const twin = (c, d) => c !== card && inPlace(c, d, parentOn(d), pos) && sameKind(c, card);
+      const has = d => d !== null && list.cards.some(c => twin(c, d));
       const open = days.filter(d => !has(d));
       const home = editing.days.has(card.day) ? card.day : open.length ? open[0] : days[0];
       const into = !inPlace(card, home, parentOn(home), pos) ? moveCard(list, card.id, home, null, parentOn(home), pos) : settle(list, card);
@@ -1846,6 +1851,12 @@
         c.color = editing.color;
         if (!recoloured.includes(c.day)) recoloured.push(c.day);
       });
+      // So does a change to its hours.
+      if (rehour) skipped.forEach(d => list.cards.forEach(c => {
+        if (!twin(c, d) || c.hours === hours) return;
+        c.hours = hours;
+        if (!rehoured.includes(d)) rehoured.push(d);
+      }));
     } else {
       days.forEach(day => {
         const c = newCard(day), into = mergeTarget(list, c, day, c.parentId, c.pos);
@@ -1861,10 +1872,12 @@
     const changed = save();
     renderAll();
     const names = ds => ds.map(d => DAY_NAMES[d]).join(", ");
+    const untouched = skipped.filter(d => !recoloured.includes(d) && !rehoured.includes(d));
     const notes = [
       merged.length === 1 ? `Merged into ${merged[0].title} · ${fmtH(merged[0].hours)}` : merged.length ? `Merged into ${merged.length} matching cards` : "",
       added.length ? `Added to ${names(added)}` : "",
-      skipped.some(d => !recoloured.includes(d)) ? `already on ${names(skipped.filter(d => !recoloured.includes(d)))}` : "",
+      untouched.length ? `already on ${names(untouched)}` : "",
+      rehoured.length ? `changed to ${fmtH(hours)} on ${names(rehoured)}` : "",
       recoloured.length ? `recoloured on ${names(recoloured.sort((a, b) => a - b))}` : "",
       alone.length ? `on its own on ${names(alone)} (no ${$("cardIn").selectedOptions[0].textContent} there)` : ""
     ].filter(Boolean).join(" · ");
