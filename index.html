@@ -73,6 +73,9 @@
   .banner button { flex: 0 0 auto; }
   .theme-toggle { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 6px; font-size: .8em; }
   .theme-toggle:hover { background: var(--card-bg); }
+  .header-actions { display: flex; flex: 0 0 auto; gap: 6px; }
+  .header-actions button { white-space: nowrap; }
+  body.dev-mode #devToggle { background: var(--accent); border-color: var(--accent); color: #fff; }
   .mode-toggle { display: flex; gap: 8px; }
   .mode-btn { flex: 1; padding: 12px 10px; font-size: .9em; font-weight: 600; border-radius: 6px; border: 1px solid var(--border); background: var(--btn-bg); color: var(--text); transition: background-color .2s, border-color .2s, color .2s; }
   .mode-btn:hover:not(.active) { background: var(--border); }
@@ -268,7 +271,10 @@
       <h1>Momo</h1>
       <div class="subtitle">A weekly time budget. Give every hour a job.</div>
     </div>
-    <button class="theme-toggle" id="themeToggle">🌓 Theme</button>
+    <div class="header-actions">
+      <button class="theme-toggle" id="devToggle" aria-pressed="false" title="Developer mode (Ctrl+9)">Dev</button>
+      <button class="theme-toggle" id="themeToggle">🌓 Theme</button>
+    </div>
   </div>
 
   <section id="syncBanner" class="banner" hidden>
@@ -578,6 +584,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.252", date: "2026-09-26", changes: [
+      "A Dev button next to Theme turns developer mode on and off without a keyboard (for phones)."
+    ] },
     { version: "1.242", date: "2026-09-25", changes: [
       "Close-out starts each goal at its planned hours; lower any that fell short."
     ] },
@@ -2072,6 +2081,7 @@
   function toggleDevMode() {
     devModeOn = !devModeOn;
     document.body.classList.toggle("dev-mode", devModeOn);
+    $("devToggle").setAttribute("aria-pressed", devModeOn);
     if (!devModeOn) return;
     $("devVersionNum").textContent = APP_VERSION;
     $("devBugReportCount").textContent = bugReports.length;
@@ -2539,6 +2549,7 @@
   $("testBannerBtn").addEventListener("click", () => location.reload());
 
   $("devBadge").addEventListener("click", toggleDevMode);
+  $("devToggle").addEventListener("click", toggleDevMode);
   $("devPanelClose").addEventListener("click", toggleDevMode);
   $("devPlusDayBtn").addEventListener("click", () => timeTravel(1));
   $("devPlusWeekBtn").addEventListener("click", () => timeTravel(7));
