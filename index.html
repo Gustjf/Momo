@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Momo — Weekly Time Budget</title>
+<!-- Favicon: the "peach" icon from Lucide Lab (ISC license) — Aang named Momo after a peach ("momo" in Japanese) — in orange so it shows on light and dark tabs. -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f97316' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M14 2a2 2 0 0 0-2 2v2'/><path d='M12 6.5A6 6 0 0 1 22 11c0 6.1-4.5 11-10 11S2 17.1 2 11a6 6 0 0 1 12 0'/></svg>">
 <style>
   :root {
     --bg: #f4f5f7; --panel: #ffffff; --border: #dcdfe4; --text: #1f2430; --muted: #6b7280;
@@ -719,6 +721,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "4.022", date: "2026-09-26", changes: [
+      "Added a peach tab icon (from Lucide; Momo is named after a peach) so Momo is easy to spot among browser tabs."
+    ] },
     { version: "4.012", date: "2026-09-26", changes: [
       "Cards at the same time line up across every day: where a short card needs room for its text, that stretch of time is a little taller on all days instead of just its own.",
       "A pinned card that the cards above run into is drawn at its own time, set in over them, instead of below them."
