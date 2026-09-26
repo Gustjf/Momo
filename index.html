@@ -628,6 +628,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.688", date: "2026-09-26", changes: [
+      "Picking other days in a card's editor makes that card on those days match it — the same hours and colour — even when you haven't changed them, and even where it sits somewhere else that day."
+    ] },
     { version: "1.687", date: "2026-09-26", changes: [
       "A Ctrl-drag puts the card right after the same card on every day (drop Commute under Sleep and it goes under Sleep everywhere), and brings it along even where it sits inside another card."
     ] },
@@ -1970,39 +1973,42 @@
       return p && !sameKind(p, { title, goalId }) ? p : null;
     };
     const parentOn = d => (holderOn(d) || { id: null }).id;
-    const alone = inTitle ? days.filter(d => d !== null && !holderOn(d)) : [];
     const newCard = day => ({ id: newId(), title, hours, day, goalId, color: editing.color, base: false, parentId: parentOn(day), pos });
     const merged = [], added = [], skipped = [], recoloured = [], rehoured = [];
+    let placed = days; // the days the card was put on, for "on its own on …"
     if (card) {
-      const recolour = !goalId && card.color !== editing.color, rehour = card.hours !== hours;
       Object.assign(card, { title, hours, goalId, color: editing.color });
       // The card stays where it is if its day is still picked, else moves to the
-      // first picked day that doesn't have a matching card there. Each other
-      // picked day gets a copy — unless it already has one, which stays where it
-      // is but takes any new colour or hours picked here.
-      const twin = (c, d) => c !== card && inPlace(c, d, parentOn(d), pos) && sameKind(c, card);
-      const has = d => d !== null && list.cards.some(c => twin(c, d));
-      const open = days.filter(d => !has(d));
+      // first picked day that doesn't have it yet. Each other picked day gets a
+      // copy, unless it has the card already (in the same place, else anywhere
+      // on that day): that one stays where it is and takes the hours shown
+      // here, and every card like it on the picked days takes the colour, so
+      // picking days makes them match this card.
+      const twinOn = d => {
+        const like = list.cards.filter(c => c !== card && d !== null && c.day === d && sameKind(c, card));
+        return like.find(c => inPlace(c, d, parentOn(d), pos)) || like[0] || null;
+      };
+      const open = days.filter(d => !twinOn(d));
       const home = editing.days.has(card.day) ? card.day : open.length ? open[0] : days[0];
       const into = !inPlace(card, home, parentOn(home), pos) ? moveCard(list, card.id, home, null, parentOn(home), pos) : settle(list, card);
       if (into) merged.push(into);
       days.filter(d => d !== home).forEach(d => {
-        if (has(d)) return skipped.push(d);
-        insertCard(list, newCard(d), null);
-        added.push(d);
+        const twin = twinOn(d);
+        if (!twin) {
+          insertCard(list, newCard(d), null);
+          return added.push(d);
+        }
+        skipped.push(d);
+        if (twin.hours === hours) return;
+        twin.hours = hours;
+        rehoured.push(d);
       });
-      // The same card on the other picked days takes the colour picked here.
-      if (recolour) list.cards.forEach(c => {
+      placed = [home].concat(added);
+      if (!goalId) list.cards.forEach(c => {
         if (c.day === null || !editing.days.has(c.day) || !sameKind(c, card) || c.color === editing.color) return;
         c.color = editing.color;
         if (!recoloured.includes(c.day)) recoloured.push(c.day);
       });
-      // So does a change to its hours.
-      if (rehour) skipped.forEach(d => list.cards.forEach(c => {
-        if (!twin(c, d) || c.hours === hours) return;
-        c.hours = hours;
-        if (!rehoured.includes(d)) rehoured.push(d);
-      }));
     } else {
       days.forEach(day => {
         const c = newCard(day), into = mergeTarget(list, c, day, c.parentId, c.pos);
@@ -2017,6 +2023,7 @@
     dismissOverlay("cardOverlay");
     const changed = save();
     renderAll();
+    const alone = inTitle ? placed.filter(d => d !== null && !holderOn(d)) : [];
     const names = ds => ds.map(d => DAY_NAMES[d]).join(", ");
     const untouched = skipped.filter(d => !recoloured.includes(d) && !rehoured.includes(d));
     const notes = [
