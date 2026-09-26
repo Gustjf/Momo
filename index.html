@@ -139,16 +139,26 @@
   .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .card-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
   .card-hours { flex: 0 0 auto; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .card.is-goal .card-title::before { content: ""; display: inline-block; box-sizing: border-box; width: 8px; height: 8px; margin: -2px 5px 0 0; border: 2px solid var(--c); border-radius: 50%; vertical-align: middle; }
+  .card.is-goal > .card-title::before, .card.is-goal > .card-own > .card-title::before { content: ""; display: inline-block; box-sizing: border-box; width: 8px; height: 8px; margin: -2px 5px 0 0; border: 2px solid var(--c); border-radius: 50%; vertical-align: middle; }
   .card.dragging { opacity: .3; }
-  .card.merge-target, .card.resizing { box-shadow: 0 0 0 2px var(--accent); }
+  .card.drop-into, .card.resizing { box-shadow: 0 0 0 2px var(--accent); }
   .grip { position: absolute; left: 0; right: 0; bottom: 0; height: 7px; cursor: ns-resize; }
   .grip::after { content: ""; position: absolute; left: 50%; bottom: 2px; width: 18px; height: 2px; margin-left: -9px; border-radius: 1px; background: var(--c); opacity: 0; transition: opacity .15s; }
-  .card:hover .grip::after { opacity: .8; }
+  .card:not(.has-inner):hover > .grip::after, .card-own:hover > .grip::after { opacity: .8; }
   @media (hover: none) { .grip { display: none; } }
+  /* A card with others inside it (lunch inside work) is one block: its own hours
+     on top, the cards inside below. Each part is resized from its own bottom edge. */
+  .card.has-inner { flex-direction: column; align-items: stretch; gap: 3px; height: auto; min-height: max(24px, calc(var(--h) * var(--hour) - 4px)); padding: 0 3px 3px 0; }
+  .card-own { position: relative; flex: 1 0 auto; display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; min-height: 20px; padding: 4px 4px 0 7px; }
+  .card-own:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .card.inner { height: max(20px, calc(var(--h) * var(--hour) - 3px)); margin-left: 4px; padding: 2px 6px; border-radius: 4px; }
+  .card .card { font-size: 1em; }
   .parking .card { height: auto; align-items: center; padding: 5px 8px; }
+  .parking .card.has-inner { flex-direction: row; align-items: center; min-height: 0; padding: 3px; }
+  .parking .card-own { min-height: 0; padding: 2px 4px; }
+  .parking .card.inner { height: auto; margin: 0; padding: 2px 6px; }
   .board.locked .card { cursor: default; }
-  .ghost { position: fixed; left: 0; top: 0; z-index: 10001; margin: 0; pointer-events: none; opacity: .95; box-shadow: 0 8px 24px rgba(0, 0, 0, .25); }
+  .card.ghost { position: fixed; left: 0; top: 0; z-index: 10001; margin: 0; pointer-events: none; opacity: .95; box-shadow: 0 8px 24px rgba(0, 0, 0, .25); }
   .drop-line { display: none; position: fixed; z-index: 10000; height: 3px; border-radius: 2px; background: var(--accent); pointer-events: none; }
   body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   body.is-resizing, body.is-resizing * { cursor: ns-resize !important; }
@@ -400,6 +410,7 @@
           <input type="number" id="cardHours" step="0.25" min="0.25" max="24">
           <button type="button" class="step-btn" data-step="1" aria-label="More">+</button>
         </div>
+        <div class="note" id="cardInnerNote" hidden></div>
       </div>
       <div class="field" id="cardGoalField">
         <label for="cardGoal">Goal</label>
@@ -416,6 +427,10 @@
         </span>
       </div>
       <div class="day-pills" id="cardDays"></div>
+    </div>
+    <div class="field" id="cardInField">
+      <label for="cardIn">Inside</label>
+      <select id="cardIn"></select>
     </div>
     <div class="field" id="cardColorField">
       <label>Colour</label>
@@ -582,6 +597,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.383", date: "2026-09-26", changes: [
+      "A card can go inside another (drop Lunch onto Work, or pick Work under Inside): each keeps its own hours, and Work's block grows to fit both."
+    ] },
     { version: "1.283", date: "2026-09-26", changes: [
       "Esc closes Developer Mode too, and closing a window that has unsaved changes asks before discarding them."
     ] },
@@ -708,9 +726,12 @@
   // weeks:    { "YYYY-MM-DD" (Monday): { cards, closed, u } }
   // baseline: { cards, u } — the default week, loaded into weeks in one click
   // goals:    [{ id, name, target, start, due, color, log: { weekKey: hours }, deleted, u }]
-  // card:     { id, title, hours, day: 0-6 | null (parked), goalId, color, base }
+  // card:     { id, title, hours, day: 0-6 | null (parked), goalId, color, base, parentId }
   // A day's cards show in the order they're listed. `u` is when that week,
   // baseline or goal last changed, which is how sync combines two devices' edits.
+  // A card can sit inside another on the same day (lunch inside work): parentId
+  // is that card's id. Each keeps its own hours, and together they show as one
+  // block, as tall as both. Only one level deep.
   function emptyData() { return { weeks: {}, baseline: { cards: [], u: 0 }, goals: [] }; }
   const blankWeek = () => ({ cards: [], closed: false, u: 0 });
   const weekOf = key => data.weeks[key] || blankWeek(); // for reading: a week not planned yet reads as empty
@@ -733,6 +754,9 @@
   const weeksLeft = (g, key) => Math.floor(daysBetween(key, weekKeyOf(g.due)) / 7) + 1;
 
   const dayTotal = (list, d) => sum(list.cards.filter(c => c.day === d).map(c => c.hours));
+  // The cards inside a card, and the hours of the whole block.
+  const innerCards = (list, card) => list.cards.filter(c => c.parentId === card.id);
+  const blockHours = (list, card) => card.hours + sum(innerCards(list, card).map(c => c.hours));
   // Goal hours scheduled on a board's days (parked cards aren't scheduled).
   const plannedFor = (list, goalId) => sum(list.cards.filter(c => c.goalId === goalId && c.day !== null).map(c => c.hours));
 
@@ -783,13 +807,41 @@
   }
 
   // Cards are consolidated: one block per activity per day. A card dropped or
-  // created on a day that already has a matching card (same title and goal)
-  // folds into it — unless that would make a card longer than a day. Parked
-  // cards stay separate.
+  // created on a day that already has a matching card (same title and goal) in
+  // the same place — on its own, or inside the same card — folds into it,
+  // unless that would make a card longer than a day. Parked cards stay separate.
   const sameKind = (a, b) => a.title.toLowerCase() === b.title.toLowerCase() && (a.goalId || null) === (b.goalId || null);
-  function mergeTarget(list, card, day) {
+  function mergeTarget(list, card, day, parentId = null) {
     if (day === null) return null;
-    return list.cards.find(c => c !== card && c.day === day && sameKind(c, card) && c.hours + card.hours <= DAY_HOURS) || null;
+    return list.cards.find(c => c !== card && c.day === day && c.parentId === parentId && sameKind(c, card) && c.hours + card.hours <= DAY_HOURS) || null;
+  }
+
+  // Folds a card into a matching one: its hours, and any cards inside it.
+  function absorb(list, into, card) {
+    into.hours += card.hours;
+    list.cards = list.cards.filter(c => c !== card);
+    innerCards(list, card).forEach(c => {
+      const twin = mergeTarget(list, c, into.day, into.id);
+      if (twin) absorb(list, twin, c);
+      else Object.assign(c, { day: into.day, parentId: into.id });
+    });
+  }
+
+  // What can hold a card: one on its own that isn't the same kind, while the
+  // card has nothing inside it (one level deep).
+  const canHold = (list, parent, card) => !!parent && parent !== card && !parent.parentId && !sameKind(parent, card) && !innerCards(list, card).length;
+
+  // Keeps nesting sound after anything that could break it (a card taken
+  // away, a damaged file): a card inside another must be on the same day as
+  // that card, which is on its own; otherwise it goes back on its own.
+  function tidyNesting(list) {
+    const byId = new Map(list.cards.map(c => [c.id, c]));
+    list.cards.forEach(c => {
+      const p = byId.get(c.parentId);
+      if (!p || p === c || p.day !== c.day) c.parentId = null;
+    });
+    const nested = new Set(list.cards.filter(c => c.parentId).map(c => c.id));
+    list.cards.forEach(c => { if (nested.has(c.parentId)) c.parentId = null; });
   }
 
   // Puts a card before the card beforeId, or after the last card on its day.
@@ -799,28 +851,32 @@
     list.cards.splice(i, 0, card);
   }
 
-  // Moves a card to a day (null = parked), before the card beforeId or last.
+  // Moves a card to a day (null = parked): inside the card parentId, or on its
+  // own before the card beforeId (else last). Cards inside it go along.
   // Returns the card it merged into, if it did.
-  function moveCard(list, id, day, beforeId) {
+  function moveCard(list, id, day, beforeId, parentId = null) {
     const card = list.cards.find(c => c.id === id);
     if (!card) return null;
-    const into = card.day !== day ? mergeTarget(list, card, day) : null;
-    list.cards = list.cards.filter(c => c !== card);
+    const inner = innerCards(list, card);
+    if (inner.length) parentId = null;
+    if (parentId && card.parentId === parentId) return null; // already inside it
+    const into = card.day !== day || card.parentId !== parentId ? mergeTarget(list, card, day, parentId) : null;
     if (into) {
-      into.hours += card.hours;
+      absorb(list, into, card);
       return into;
     }
-    card.day = day;
+    list.cards = list.cards.filter(c => c !== card);
+    Object.assign(card, { day, parentId });
+    inner.forEach(c => { c.day = day; });
     insertCard(list, card, beforeId);
     return null;
   }
 
-  // After a card is edited where it is, folds it into a matching card on its day.
+  // After a card is edited where it is, folds it into a matching card there.
   function settle(list, card) {
-    const into = mergeTarget(list, card, card.day);
+    const into = mergeTarget(list, card, card.day, card.parentId);
     if (!into) return null;
-    into.hours += card.hours;
-    list.cards = list.cards.filter(c => c !== card);
+    absorb(list, into, card);
     return into;
   }
 
@@ -924,16 +980,19 @@
       day: onDay ? c.day : null,
       goalId: typeof c.goalId === "string" && c.goalId ? c.goalId.slice(0, 40) : null,
       color: Number.isInteger(c.color) && c.color >= 0 && c.color < PALETTE ? c.color : hashColor(title),
-      base: c.base === true
+      base: c.base === true,
+      parentId: typeof c.parentId === "string" && c.parentId ? c.parentId.slice(0, 40) : null
     };
   }
   function cleanCards(list, allowParked) {
     const ids = new Set();
-    return (Array.isArray(list) ? list : []).map(c => cleanCard(c, allowParked)).filter(Boolean).map(c => {
+    const cards = (Array.isArray(list) ? list : []).map(c => cleanCard(c, allowParked)).filter(Boolean).map(c => {
       if (ids.has(c.id)) c.id = newId();
       ids.add(c.id);
       return c;
     });
+    tidyNesting({ cards });
+    return cards;
   }
   const cleanU = u => (isPos(u) ? u : 0);
   function cleanGoal(g) {
@@ -1106,18 +1165,24 @@
 
     // The parking lot holds cards without a day; their hours aren't budgeted yet.
     $("parking").hidden = isBase || locked;
-    const parked = list.cards.filter(c => c.day === null);
-    $("parkingCards").innerHTML = parked.length ? parked.map(cardHTML).join("")
+    const parked = list.cards.filter(c => c.day === null && !c.parentId);
+    $("parkingCards").innerHTML = parked.length ? parked.map(c => cardHTML(list, c)).join("")
       : `<span class="parking-empty">Drop a card here to take it off its day.</span>`;
     $("parkedTotal").textContent = !parked.length ? "" : `${fmtH(b.parked)}${b.parked > b.free ? ` · only ${fmtH(b.free)} free` : ""}`;
   }
 
-  function cardHTML(c) {
-    const g = goalById(c.goalId);
-    const label = `${c.title}, ${fmtH(c.hours)}${g ? `, goal: ${g.name}` : ""}`;
-    return `<div class="card${g ? " is-goal" : ""}" data-id="${esc(c.id)}" role="button" tabindex="0" aria-label="${esc(label)}" title="${esc(label)}" style="--h:${c.hours};--c:var(--c${g ? g.color : c.color})">` +
-      `<span class="card-title">${esc(c.title)}</span><span class="card-hours">${fmtH(c.hours)}</span>` +
-      `${c.day === null ? "" : `<span class="grip" aria-hidden="true"></span>`}</div>`;
+  // A card with cards inside it is one block, sized to all of their hours: its
+  // own part on top (which takes the clicks, so buttons aren't nested), theirs below.
+  function cardHTML(list, c) {
+    const g = goalById(c.goalId), inner = innerCards(list, c);
+    const parent = c.parentId && list.cards.find(p => p.id === c.parentId);
+    const label = `${c.title}, ${fmtH(c.hours)}${g ? `, goal: ${g.name}` : ""}` +
+      (inner.length ? ` + ${inner.map(x => `${x.title} ${fmtH(x.hours)}`).join(" + ")} = ${fmtH(blockHours(list, c))}` : parent ? `, inside ${parent.title}` : "");
+    const button = `role="button" tabindex="0" aria-label="${esc(label)}" title="${esc(label)}"`;
+    const own = `<span class="card-title">${esc(c.title)}</span><span class="card-hours">${fmtH(c.hours)}</span>` +
+      `${c.day === null ? "" : `<span class="grip" aria-hidden="true"></span>`}`;
+    return `<div class="card${g ? " is-goal" : ""}${inner.length ? " has-inner" : ""}${parent ? " inner" : ""}" data-id="${esc(c.id)}"${inner.length ? "" : ` ${button}`} style="--h:${blockHours(list, c)};--c:var(--c${g ? g.color : c.color})">` +
+      (inner.length ? `<div class="card-own" ${button}>${own}</div>${inner.map(x => cardHTML(list, x)).join("")}` : own) + `</div>`;
   }
 
   // The dashed block under a day's cards: its free hours (sized to match), or
@@ -1143,7 +1208,7 @@
           <div class="col-total">Total: <span class="col-sum">${fmtNum(total)}</span>/24</div>
           <div class="col-bar"><span style="width:${Math.min(100, total / DAY_HOURS * 100)}%"></span></div>
         </div>
-        <div class="col-body">${list.cards.filter(c => c.day === d).map(cardHTML).join("")}${locked ? "" : freeHTML(d, DAY_HOURS - total)}</div>
+        <div class="col-body">${list.cards.filter(c => c.day === d && !c.parentId).map(c => cardHTML(list, c)).join("")}${locked ? "" : freeHTML(d, DAY_HOURS - total)}</div>
       </div>`;
     }).join("");
   }
@@ -1255,6 +1320,7 @@
     const p = press;
     press = null;
     clearTimeout(p.timer);
+    const list = shownList(), card = list.cards.find(c => c.id === p.id);
     const rect = p.el.getBoundingClientRect();
     const ghost = p.el.cloneNode(true);
     ghost.classList.add("ghost");
@@ -1262,7 +1328,7 @@
     ghost.style.width = `${rect.width}px`;
     ghost.style.height = `${rect.height}px`;
     document.body.appendChild(ghost);
-    drag = { id: p.id, key: shownKey(), el: p.el, home: p.el.closest("#board .col"), ghost, pointerId: p.pointerId, offX: p.x0 - rect.left, offY: p.y0 - rect.top, x: p.x, y: p.y, target: null, raf: 0 };
+    drag = { id: p.id, key: shownKey(), el: p.el, home: p.el.closest("#board .col"), hours: card ? blockHours(list, card) : 0, ghost, pointerId: p.pointerId, offX: p.x0 - rect.left, offY: p.y0 - rect.top, x: p.x, y: p.y, target: null, raf: 0 };
     p.el.classList.add("dragging");
     document.body.classList.add("is-dragging");
     try { p.el.setPointerCapture(p.pointerId); } catch (err) { /* the pointer is already gone */ }
@@ -1276,19 +1342,28 @@
     drag.ghost.style.transform = `translate(${drag.x - drag.offX}px, ${drag.y - drag.offY}px) rotate(1.5deg)`;
   }
 
-  // Works out where the card would land: a spot in a day, a card it would merge
-  // into, or the parking lot.
+  // Works out where the card would land: a spot in a day, a card it would go
+  // inside (over the middle third of it, or over a card already inside it), a
+  // card it would merge into, or the parking lot.
   function findTarget() {
-    const card = readList(drag.key).cards.find(c => c.id === drag.id);
+    const list = readList(drag.key), card = list.cards.find(c => c.id === drag.id);
     const el = document.elementFromPoint(drag.x, drag.y);
     const col = el && el.closest("#board .col");
     const park = !col && el && el.closest("#parking");
     let t = null;
     if (card && col) {
       const day = +col.dataset.day;
-      const others = [...col.querySelectorAll(".col-body .card")].filter(c => c !== drag.el);
-      const before = others.find(c => { const r = c.getBoundingClientRect(); return drag.y < r.top + r.height / 2; }) || null;
-      t = { day, col, before, into: card.day !== day ? mergeTarget(readList(drag.key), card, day) : null };
+      const others = [...col.querySelectorAll(".col-body > .card")].filter(c => c !== drag.el);
+      const inner = el.closest(".card.inner");
+      const over = inner ? inner.parentElement : others.find(c => {
+        const r = c.getBoundingClientRect();
+        return drag.y > r.top + r.height / 3 && drag.y < r.bottom - r.height / 3;
+      });
+      const holder = over && list.cards.find(c => c.id === over.dataset.id);
+      const parent = canHold(list, holder, card) ? holder : null;
+      const before = parent ? null : others.find(c => { const r = c.getBoundingClientRect(); return drag.y < r.top + r.height / 2; }) || null;
+      const parentId = parent ? parent.id : null;
+      t = { day, col, before, parent, into: card.day !== day || card.parentId !== parentId ? mergeTarget(list, card, day, parentId) : null };
     } else if (card && park) {
       t = { day: null, park: true };
     }
@@ -1300,17 +1375,18 @@
     const prev = drag.target;
     if (prev && prev.col && (!t || t.col !== prev.col)) resetColPreview(prev.col);
     // The card's own day shows its total without the card while it's headed elsewhere.
-    if (drag.home && (!t || t.col !== drag.home)) previewCol(drag.home, +drag.home.dataset.total - (t ? card.hours : 0));
-    document.querySelectorAll(".card.merge-target").forEach(el => el.classList.remove("merge-target"));
+    if (drag.home && (!t || t.col !== drag.home)) previewCol(drag.home, +drag.home.dataset.total - (t ? drag.hours : 0));
+    document.querySelectorAll(".card.drop-into").forEach(el => el.classList.remove("drop-into"));
     $("parking").classList.toggle("drop-target", !!(t && t.park));
     if (!t || !t.col) return hideDropLine();
-    const total = +t.col.dataset.total + (card.day === t.day ? 0 : card.hours);
+    const total = +t.col.dataset.total + (card.day === t.day ? 0 : drag.hours);
     t.col.classList.add("drop-target");
     previewCol(t.col, total);
-    if (t.into) {
+    const ring = t.into || t.parent; // the card it merges into or goes inside
+    if (ring) {
       hideDropLine();
-      const intoEl = [...t.col.querySelectorAll(".card")].find(el => el.dataset.id === t.into.id);
-      if (intoEl) intoEl.classList.add("merge-target");
+      const ringEl = [...t.col.querySelectorAll(".card")].find(el => el.dataset.id === ring.id);
+      if (ringEl) ringEl.classList.add("drop-into");
     } else {
       placeDropLine(t.col, t.before);
     }
@@ -1336,7 +1412,7 @@
     if (before) {
       y = before.getBoundingClientRect().top - 3.5;
     } else {
-      const cards = [...col.querySelectorAll(".col-body .card")].filter(c => c !== drag.el);
+      const cards = [...col.querySelectorAll(".col-body > .card")].filter(c => c !== drag.el);
       y = cards.length ? cards[cards.length - 1].getBoundingClientRect().bottom + 0.5 : body.top + 3;
     }
     Object.assign($("dropLine").style, { display: "block", left: `${body.left + 6}px`, width: `${body.width - 12}px`, top: `${y}px` });
@@ -1376,21 +1452,26 @@
     document.body.classList.remove("is-dragging");
     $("parking").classList.remove("drop-target");
     swallowClick();
-    let into = null, changed = false;
+    let into = null, changed = false, putIn = null;
     if (commit && d.target) {
-      into = moveCard(listFor(d.key), d.id, d.target.day, d.target.before ? d.target.before.dataset.id : null);
+      const t = d.target, list = listFor(d.key), card = list.cards.find(c => c.id === d.id);
+      if (t.parent && card && card.parentId !== t.parent.id) putIn = card;
+      into = moveCard(list, d.id, t.day, t.before ? t.before.dataset.id : null, t.parent ? t.parent.id : null);
       changed = save();
     }
     renderAll();
     if (changed && into) toast(`Merged into ${into.title} · ${fmtH(into.hours)}`, true);
+    else if (changed && putIn) toast(`Put ${putIn.title} inside ${d.target.parent.title} · ${fmtH(blockHours(readList(d.key), d.target.parent))} in all`, true);
   }
 
   // Resizing: dragging a card's bottom edge changes its hours in 15-minute steps.
+  // In a block with cards inside, each part has its own edge, and the block grows with it.
   function startResize(e, cardEl) {
     e.preventDefault();
-    const card = shownList().cards.find(c => c.id === cardEl.dataset.id);
+    const list = shownList(), card = list.cards.find(c => c.id === cardEl.dataset.id);
     if (!card) return;
-    resize = { id: card.id, key: shownKey(), el: cardEl, col: cardEl.closest(".col"), pointerId: e.pointerId, y0: e.clientY, scroll0: window.scrollY, h0: card.hours, hours: card.hours, x: e.clientX, y: e.clientY, raf: 0 };
+    const block = cardEl.closest(".col-body > .card"), top = list.cards.find(c => c.id === block.dataset.id) || card;
+    resize = { id: card.id, key: shownKey(), el: cardEl, block, rest: blockHours(list, top) - card.hours, col: cardEl.closest(".col"), pointerId: e.pointerId, y0: e.clientY, scroll0: window.scrollY, h0: card.hours, hours: card.hours, x: e.clientX, y: e.clientY, raf: 0 };
     cardEl.classList.add("resizing");
     document.body.classList.add("is-resizing");
     try { cardEl.setPointerCapture(e.pointerId); } catch (err) { /* the pointer is already gone */ }
@@ -1403,6 +1484,7 @@
     if (hours === resize.hours) return;
     resize.hours = hours;
     resize.el.style.setProperty("--h", hours);
+    resize.block.style.setProperty("--h", resize.rest + hours); // the same element unless it's inside another
     resize.el.querySelector(".card-hours").textContent = fmtH(hours);
     const total = +resize.col.dataset.total - resize.h0 + hours;
     previewCol(resize.col, total);
@@ -1435,9 +1517,9 @@
   }
 
   function onCardKey(e) {
-    if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("card") && !isLocked()) {
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches(".card, .card-own") && !isLocked()) {
       e.preventDefault();
-      openCardEditor(e.target.dataset.id);
+      openCardEditor(e.target.closest(".card").dataset.id);
     }
   }
 
@@ -1457,7 +1539,7 @@
   }
 
   // What an editor holds, to tell whether closing it would lose changes.
-  const cardFormState = () => JSON.stringify([$("cardTitle").value, $("cardHours").value, $("cardGoal").value, [...editing.days].sort(), editing.color]);
+  const cardFormState = () => JSON.stringify([$("cardTitle").value, $("cardHours").value, $("cardGoal").value, $("cardIn").value, [...editing.days].sort(), editing.color]);
   const goalFormState = () => JSON.stringify(["goalName", "goalTarget", "goalDone", "goalDueMonth", "goalDueDay", "goalDueYear"].map(id => $(id).value).concat(editingGoal.color));
   function hasPendingInput(id) {
     if (id === "cardOverlay") return !!editing && cardFormState() !== editing.snapshot;
@@ -1495,7 +1577,7 @@
     const card = id ? list.cards.find(c => c.id === id) : null;
     if (id && !card) return;
     const free = day === null || noDay ? 0 : DAY_HOURS - dayTotal(list, day);
-    editing = { key, id: card ? card.id : null, days: new Set(noDay ? [] : [card ? card.day : day]), color: card ? card.color : newCardColor(list), lastGoalId: card ? card.goalId : null };
+    editing = { key, id: card ? card.id : null, days: new Set(noDay ? [] : [card ? card.day : day]), color: card ? card.color : newCardColor(list), lastGoalId: card ? card.goalId : null, inner: card ? innerCards(list, card) : [] };
     $("cardModalTitle").textContent = card ? "Edit card" : "New card";
     $("cardTitle").value = card ? card.title : "";
     $("cardHours").value = fmtNum(card ? card.hours : free > 0 && free < 1 ? free : 1);
@@ -1504,6 +1586,18 @@
     $("cardGoal").value = card && goals.some(g => g.id === card.goalId) ? card.goalId : "";
     $("cardGoalField").hidden = !goals.length;
     $("cardColorField").hidden = !!$("cardGoal").value;
+    // Inside: the cards on their own it could go inside, by title (on each day
+    // picked, that day's one). A card with cards inside it stays on its own.
+    const parent = card && card.parentId && list.cards.find(c => c.id === card.parentId);
+    const holders = new Map(), own = card ? card.title.toLowerCase() : "";
+    if (!editing.inner.length) list.cards.forEach(c => {
+      const t = c.title.toLowerCase();
+      if (!c.parentId && t !== own && !holders.has(t)) holders.set(t, c.title);
+    });
+    $("cardIn").innerHTML = `<option value="">None</option>` + [...holders].map(([t, title]) => `<option value="${esc(t)}">${esc(title)}</option>`).join("");
+    $("cardIn").value = parent ? parent.title.toLowerCase() : "";
+    $("cardInField").hidden = !holders.size;
+    renderInnerNote();
     const noWeekdays = !presetDays(WEEKDAYS).length; // this week, on a weekend
     $("cardWeekdaysBtn").disabled = noWeekdays;
     $("cardWeekdaysBtn").title = noWeekdays ? "No weekdays left this week" : "";
@@ -1595,32 +1689,50 @@
     if (isNum(v)) e.target.value = fmtNum(v);
   }
 
+  // Under the hours of a card with cards inside it: those, and the block's total.
+  function renderInnerNote() {
+    const inner = editing ? editing.inner : [], h = readHours("cardHours");
+    $("cardInnerNote").hidden = !inner.length;
+    $("cardInnerNote").textContent = `+ ${inner.map(c => `${c.title} ${fmtH(c.hours)}`).join(" + ")} inside${isNum(h) ? ` = ${fmtH(h + sum(inner.map(c => c.hours)))}` : ""}`;
+  }
+
   function saveCard() {
     if (!editing) return;
     const title = cleanText($("cardTitle").value);
     const hours = readHours("cardHours");
     const goalId = goalById($("cardGoal").value) ? $("cardGoal").value : null;
+    const inTitle = $("cardInField").hidden ? "" : $("cardIn").value;
     if (!title) { $("cardTitle").focus(); return alert("Give the card a name."); }
     if (!isNum(hours)) { $("cardHours").focus(); return alert("Enter how many hours, e.g. 1.5 (in 15-minute steps)."); }
     if (!editing.days.size) return alert(editing.key === "base" ? "Pick at least one day." : "Pick at least one day, or Parked.");
     const list = listFor(editing.key), days = [...editing.days].sort((a, b) => a - b);
-    const newCard = day => ({ id: newId(), title, hours, day, goalId, color: editing.color, base: false });
+    const card = editing.id ? list.cards.find(c => c.id === editing.id) : null;
+    if (editing.id && !card) {
+      dismissOverlay("cardOverlay");
+      renderAll();
+      return toast("That card was changed on another device, so nothing was saved.", false);
+    }
+    // On each day it goes inside that day's card picked under Inside (the one
+    // it's already inside, where it is), if there's one; else it's on its own.
+    const cur = card && card.parentId && list.cards.find(c => c.id === card.parentId);
+    const holderOn = d => {
+      const p = !inTitle ? null : cur && cur.day === d && cur.title.toLowerCase() === inTitle ? cur
+        : d === null ? null : list.cards.find(c => c.day === d && c !== card && !c.parentId && c.title.toLowerCase() === inTitle);
+      return p && !sameKind(p, { title, goalId }) ? p : null;
+    };
+    const parentOn = d => (holderOn(d) || { id: null }).id;
+    const alone = inTitle ? days.filter(d => d !== null && !holderOn(d)) : [];
+    const newCard = day => ({ id: newId(), title, hours, day, goalId, color: editing.color, base: false, parentId: parentOn(day) });
     const merged = [], added = [], skipped = [];
-    if (editing.id) {
-      const card = list.cards.find(c => c.id === editing.id);
-      if (!card) {
-        dismissOverlay("cardOverlay");
-        renderAll();
-        return toast("That card was changed on another device, so nothing was saved.", false);
-      }
+    if (card) {
       Object.assign(card, { title, hours, goalId, color: editing.color });
-      // The card stays on its day if that's still picked, else moves to the first
-      // picked day that doesn't have a matching card. Each other picked day gets
-      // a copy — unless it already has a matching card, which is left as it is.
-      const has = d => d !== null && list.cards.some(c => c !== card && c.day === d && sameKind(c, card));
+      // The card stays where it is if its day is still picked, else moves to the
+      // first picked day that doesn't have a matching card there. Each other
+      // picked day gets a copy — unless it already has one, which is left as it is.
+      const has = d => d !== null && list.cards.some(c => c !== card && c.day === d && c.parentId === parentOn(d) && sameKind(c, card));
       const open = days.filter(d => !has(d));
       const home = editing.days.has(card.day) ? card.day : open.length ? open[0] : days[0];
-      const into = home !== card.day ? moveCard(list, card.id, home, null) : settle(list, card);
+      const into = home !== card.day || parentOn(home) !== card.parentId ? moveCard(list, card.id, home, null, parentOn(home)) : settle(list, card);
       if (into) merged.push(into);
       days.filter(d => d !== home).forEach(d => {
         if (has(d)) return skipped.push(d);
@@ -1629,12 +1741,12 @@
       });
     } else {
       days.forEach(day => {
-        const card = newCard(day), into = mergeTarget(list, card, day);
+        const c = newCard(day), into = mergeTarget(list, c, day, c.parentId);
         if (into) {
           into.hours += hours;
           merged.push(into);
         } else {
-          insertCard(list, card, null);
+          insertCard(list, c, null);
         }
       });
     }
@@ -1645,7 +1757,8 @@
     const notes = [
       merged.length === 1 ? `Merged into ${merged[0].title} · ${fmtH(merged[0].hours)}` : merged.length ? `Merged into ${merged.length} matching cards` : "",
       added.length ? `Added to ${names(added)}` : "",
-      skipped.length ? `already on ${names(skipped)}` : ""
+      skipped.length ? `already on ${names(skipped)}` : "",
+      alone.length ? `on its own on ${names(alone)} (no ${$("cardIn").selectedOptions[0].textContent} there)` : ""
     ].filter(Boolean).join(" · ");
     if (notes) toast(notes[0].toUpperCase() + notes.slice(1), changed);
   }
@@ -1655,9 +1768,12 @@
     const list = listFor(editing.key), card = list.cards.find(c => c.id === editing.id);
     dismissOverlay("cardOverlay");
     if (card) {
+      // Cards inside it stay on the day, on their own.
+      const inner = innerCards(list, card);
       list.cards = list.cards.filter(c => c !== card);
+      inner.forEach(c => { c.parentId = null; settle(list, c); });
       save();
-      toast(`Deleted ${card.title}`, true);
+      toast(`Deleted ${card.title}${inner.length ? ` · kept ${inner.map(c => c.title).join(", ")}` : ""}`, true);
     }
     renderAll();
   }
@@ -1780,15 +1896,23 @@
   // ==========================================================================
   // BASELINE & QUICK ACTIONS
   // ==========================================================================
+  // Copies of cards with new ids, each inside the copy of the card it was
+  // inside. Goal cards keep their goal only if it still exists.
+  function copyCards(cards, fields = {}) {
+    const ids = new Map(cards.map(c => [c.id, newId()]));
+    return cards.map(c => ({ ...c, id: ids.get(c.id), parentId: ids.get(c.parentId) || null, goalId: goalById(c.goalId) ? c.goalId : null, ...fields }));
+  }
+
   // Auto-funding: the baseline's cards go on top of each day, marked as from the
-  // baseline. Loading again swaps those for fresh copies; your own cards stay.
+  // baseline. Loading again swaps those for fresh copies; your own cards stay
+  // (on their own, if they were inside one of the old copies).
   function loadBaseline() {
     const key = viewKey();
     if (!key || !data.baseline.cards.length) return;
     const week = ensureWeek(key), reload = week.cards.some(c => c.base);
     if (reload && !confirm("Reload the baseline? Its cards already in this week are replaced by fresh copies, including any changes you made to them. Cards you added yourself stay.")) return;
-    const fresh = data.baseline.cards.map(c => ({ ...c, id: newId(), goalId: goalById(c.goalId) ? c.goalId : null, base: true }));
-    week.cards = fresh.concat(week.cards.filter(c => !c.base));
+    week.cards = copyCards(data.baseline.cards, { base: true }).concat(week.cards.filter(c => !c.base));
+    tidyNesting(week);
     save();
     renderAll();
     const left = budgetOf(week, key).free;
@@ -1803,7 +1927,7 @@
     const prev = weekOf(addDays(key, -7)), week = ensureWeek(key);
     if (!prev.cards.length || week.closed) return;
     if (week.cards.length && !confirm(`Replace this week's ${week.cards.length} card${week.cards.length === 1 ? "" : "s"} with a copy of ${fmtWeek(addDays(key, -7))}?`)) return;
-    week.cards = prev.cards.map(c => ({ ...c, id: newId(), goalId: goalById(c.goalId) ? c.goalId : null }));
+    week.cards = copyCards(prev.cards);
     save();
     renderAll();
     toast(`Copied ${fmtWeek(addDays(key, -7))} — ${fmtH(budgetOf(week, key).free)} left to budget`, true);
@@ -1816,7 +1940,7 @@
     const cards = week ? week.cards.filter(c => c.day !== null) : [];
     if (!cards.length) return;
     if (data.baseline.cards.length && !confirm(`Replace your baseline (${data.baseline.cards.length} cards) with this week's ${cards.length} cards?`)) return;
-    data.baseline.cards = cards.map(c => ({ ...c, id: newId(), goalId: goalById(c.goalId) ? c.goalId : null, base: false }));
+    data.baseline.cards = copyCards(cards, { base: false });
     save();
     renderAll();
     toast("Saved as your baseline", true);
@@ -1832,9 +1956,9 @@
     b.days.forEach(d => {
       const free = DAY_HOURS - b.totals[d];
       if (free <= 0) return;
-      const existing = week.cards.find(c => c.day === d && !c.goalId && c.title.toLowerCase() === FREE_TIME.toLowerCase());
+      const existing = week.cards.find(c => c.day === d && !c.parentId && !c.goalId && c.title.toLowerCase() === FREE_TIME.toLowerCase());
       if (existing) existing.hours += free;
-      else insertCard(week, { id: newId(), title: FREE_TIME, hours: free, day: d, goalId: null, color: colorFor(FREE_TIME), base: false }, null);
+      else insertCard(week, { id: newId(), title: FREE_TIME, hours: free, day: d, goalId: null, color: colorFor(FREE_TIME), base: false, parentId: null }, null);
       added += free;
     });
     if (!added) return;
@@ -1855,7 +1979,7 @@
 
   function startSampleBaseline() {
     data.baseline.cards = DAYS.flatMap(d => SAMPLE_BASELINE.filter(s => s.days.includes(d))
-      .map(s => ({ id: newId(), title: s.title, hours: s.hours, day: d, goalId: null, color: s.color, base: false })));
+      .map(s => ({ id: newId(), title: s.title, hours: s.hours, day: d, goalId: null, color: s.color, base: false, parentId: null })));
     save();
     renderAll();
   }
@@ -2543,6 +2667,7 @@
     renderSwatches("cardColors", editing.color);
   });
   $("cardGoal").addEventListener("change", onCardGoalChange);
+  $("cardHours").addEventListener("input", renderInnerNote);
   Object.keys(HOUR_RANGES).forEach(id => $(id).addEventListener("change", tidyHours));
 
   $("goalSaveBtn").addEventListener("click", saveGoal);
