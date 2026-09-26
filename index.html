@@ -123,14 +123,14 @@
   .col-bar span { display: block; height: 100%; border-radius: 2px; background: var(--accent); transition: width .2s; }
   .col.full .col-total { color: var(--good); }
   .col.full .col-bar span { background: var(--good); }
-  .col.over, .col.preview-over { border-color: var(--bad); box-shadow: 0 0 0 1px var(--bad); }
-  .col.over .col-head, .col.preview-over .col-head { background: var(--bad-bg); }
-  .col.over .col-total, .col.preview-over .col-total { color: var(--bad); font-weight: 700; }
-  .col.over .col-bar span, .col.preview-over .col-bar span { background: var(--bad); }
+  .col.over { border-color: var(--bad); box-shadow: 0 0 0 1px var(--bad); }
+  .col.over .col-head { background: var(--bad-bg); }
+  .col.over .col-total { color: var(--bad); font-weight: 700; }
+  .col.over .col-bar span { background: var(--bad); }
   .col.today { border-color: var(--accent); }
   .col.today .col-date { color: var(--accent); font-weight: 600; }
   .col.past { opacity: .5; }
-  .col.drop-target:not(.preview-over) { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+  .col.drop-target:not(.over) { border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
   .col-body { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 6px; }
 
   /* Cards: height follows hours (minus the gap, so a full day is exactly 24 hours tall). */
@@ -582,6 +582,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.263", date: "2026-09-26", changes: [
+      "A day's total turns green or red the moment a resize or drag brings it to or past 24 hours, not only on release."
+    ] },
     { version: "1.262", date: "2026-09-26", changes: [
       "The Dev button moved to the bottom-right corner beside the version number, with room below the footer."
     ] },
@@ -1251,7 +1254,7 @@
     ghost.style.width = `${rect.width}px`;
     ghost.style.height = `${rect.height}px`;
     document.body.appendChild(ghost);
-    drag = { id: p.id, key: shownKey(), el: p.el, ghost, pointerId: p.pointerId, offX: p.x0 - rect.left, offY: p.y0 - rect.top, x: p.x, y: p.y, target: null, raf: 0 };
+    drag = { id: p.id, key: shownKey(), el: p.el, home: p.el.closest("#board .col"), ghost, pointerId: p.pointerId, offX: p.x0 - rect.left, offY: p.y0 - rect.top, x: p.x, y: p.y, target: null, raf: 0 };
     p.el.classList.add("dragging");
     document.body.classList.add("is-dragging");
     try { p.el.setPointerCapture(p.pointerId); } catch (err) { /* the pointer is already gone */ }
@@ -1288,14 +1291,14 @@
   function paintTarget(t, card) {
     const prev = drag.target;
     if (prev && prev.col && (!t || t.col !== prev.col)) resetColPreview(prev.col);
+    // The card's own day shows its total without the card while it's headed elsewhere.
+    if (drag.home && (!t || t.col !== drag.home)) previewCol(drag.home, +drag.home.dataset.total - (t ? card.hours : 0));
     document.querySelectorAll(".card.merge-target").forEach(el => el.classList.remove("merge-target"));
     $("parking").classList.toggle("drop-target", !!(t && t.park));
     if (!t || !t.col) return hideDropLine();
     const total = +t.col.dataset.total + (card.day === t.day ? 0 : card.hours);
     t.col.classList.add("drop-target");
-    t.col.classList.toggle("preview-over", total > DAY_HOURS);
-    t.col.querySelector(".col-sum").textContent = fmtNum(total);
-    t.col.querySelector(".col-bar span").style.width = `${Math.min(100, total / DAY_HOURS * 100)}%`;
+    previewCol(t.col, total);
     if (t.into) {
       hideDropLine();
       const intoEl = [...t.col.querySelectorAll(".card")].find(el => el.dataset.id === t.into.id);
@@ -1306,8 +1309,15 @@
   }
 
   function resetColPreview(col) {
-    const total = +col.dataset.total;
-    col.classList.remove("drop-target", "preview-over");
+    col.classList.remove("drop-target");
+    previewCol(col, +col.dataset.total);
+  }
+
+  // A day's total as it would be after the drop or resize, coloured the way the
+  // redraw will show it: red over 24 hours, green at exactly 24.
+  function previewCol(col, total) {
+    col.classList.toggle("over", total > DAY_HOURS);
+    col.classList.toggle("full", total === DAY_HOURS);
     col.querySelector(".col-sum").textContent = fmtNum(total);
     col.querySelector(".col-bar span").style.width = `${Math.min(100, total / DAY_HOURS * 100)}%`;
   }
@@ -1387,9 +1397,9 @@
     resize.el.style.setProperty("--h", hours);
     resize.el.querySelector(".card-hours").textContent = fmtH(hours);
     const total = +resize.col.dataset.total - resize.h0 + hours;
-    resize.col.querySelector(".col-sum").textContent = fmtNum(total);
-    resize.col.querySelector(".col-bar span").style.width = `${Math.min(100, total / DAY_HOURS * 100)}%`;
-    resize.col.classList.toggle("preview-over", total > DAY_HOURS);
+    previewCol(resize.col, total);
+    const free = resize.col.querySelector(".free");
+    if (free) free.outerHTML = freeHTML(+resize.col.dataset.day, DAY_HOURS - total);
   }
 
   function endResize(commit) {
