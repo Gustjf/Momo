@@ -141,6 +141,10 @@
   .card-hours { flex: 0 0 auto; color: var(--muted); font-variant-numeric: tabular-nums; }
   .card.is-goal > .card-title::before, .card.is-goal > .card-own > .card-title::before { content: ""; display: inline-block; box-sizing: border-box; width: 8px; height: 8px; margin: -2px 5px 0 0; border: 2px solid var(--c); border-radius: 50%; vertical-align: middle; }
   .card.dragging { opacity: .3; }
+  /* A card copied (Ctrl+C) or cut (Ctrl+X) is shaded while it waits to be pasted: blue for a copy, amber for a cut. */
+  .card.clip::after { content: ""; position: absolute; inset: 0; border-radius: inherit; outline: 2px dashed var(--clip); outline-offset: -2px; background: color-mix(in srgb, var(--clip) 18%, transparent); pointer-events: none; }
+  .card.clip { --clip: var(--accent); }
+  .card.clip.cut { --clip: var(--warn); }
   .card.drop-into, .card.resizing { box-shadow: 0 0 0 2px var(--accent); }
   .grip { position: absolute; left: 0; right: 0; bottom: 0; height: 7px; cursor: ns-resize; }
   .grip::after { content: ""; position: absolute; left: 50%; bottom: 2px; width: 18px; height: 2px; margin-left: -9px; border-radius: 1px; background: var(--c); opacity: 0; transition: opacity .15s; }
@@ -605,6 +609,7 @@
   const TOUCH_GROUP_MS = 400;    // held still this much longer, a touch drag picks up the same card on every day
   const TOUCH_SLOP_PX = 8;
   const EDGE_PX = 48;            // the page and board scroll while dragging this close to an edge
+  const CLIP_MS = 5000;          // a copied or cut card waits this long for a paste
   // Backup file format. Bump only when the shape changes in a way import has to migrate.
   const DATA_SCHEMA_VERSION = 1;
   // "Start from a sample" in an empty baseline.
@@ -635,6 +640,8 @@
   let resize = null;         // the resize in progress
   let suppressClick = false; // the click that ends a drag isn't a tap
   let renderPending = false; // a redraw held back until a drag ends
+  let clip = null;           // a card copied or cut for pasting: { key, id, cut, timer }
+  let mouse = null;          // where the mouse is, for the copy & paste shortcuts: { x, y }
 
   // Folder autosave & sync (see that section below).
   const syncSupported = typeof window.showDirectoryPicker === "function";
@@ -651,6 +658,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.998", date: "2026-09-26", changes: [
+      "Copy (Ctrl+C) or cut (Ctrl+X) the card under the mouse and paste it (Ctrl+V) right after the card the mouse is on, even on another week: it's shaded blue for a copy or amber for a cut until it's pasted, Esc is pressed, or 5 seconds pass."
+    ] },
     { version: "1.898", date: "2026-09-26", changes: [
       "A goal's finish-by date has Spring, Summer, Fall and Winter buttons: each picks the day before that season starts (its true first day in North America), and clicking it again moves on a year."
     ] },
@@ -1186,6 +1196,7 @@
     renderCloseOutControls();
     renderTestBanner();
     renderDevUndo();
+    paintClip();
   }
 
   function renderTabs() {
@@ -1797,6 +1808,126 @@
       e.preventDefault();
       openCardEditor(e.target.closest(".card").dataset.id);
     }
+  }
+
+  // ==========================================================================
+  // COPY, CUT & PASTE
+  // ==========================================================================
+  // Keyboard only: Ctrl/⌘+C copies the card under the mouse (or the one
+  // focused from the keyboard) and Ctrl/⌘+X cuts it; it's shaded until
+  // Ctrl/⌘+V puts it where the mouse is — a copy, or after a cut the card
+  // itself — on this board or another. The shading clears once it's pasted,
+  // on Esc, or CLIP_MS after the last copy or cut, and then there's nothing
+  // left to paste. A card with others inside it takes them along.
+
+  // What a shortcut points at: the card focused from the keyboard, else
+  // whatever is under the mouse.
+  function pointedAt() {
+    const f = document.activeElement;
+    if (f && f.matches(".card, .card-own") && f.matches(":focus-visible")) return { el: f, keyboard: true };
+    const el = mouse && document.elementFromPoint(mouse.x, mouse.y);
+    return el ? { el, keyboard: false } : null;
+  }
+
+  // Ctrl+C or Ctrl+X: marks the card pointed at. False when it isn't at one.
+  function clipCard(cut) {
+    const at = pointedAt(), cardEl = at && at.el.closest("#board .card, #parking .card");
+    if (!cardEl || press || drag || resize || (cut && isLocked())) return false;
+    const card = shownList().cards.find(c => c.id === cardEl.dataset.id);
+    if (!card) return false;
+    if (clip) clearTimeout(clip.timer);
+    clip = { key: shownKey(), id: card.id, cut, timer: setTimeout(clearClip, CLIP_MS) };
+    paintClip();
+    return true;
+  }
+
+  function clearClip() {
+    if (!clip) return;
+    clearTimeout(clip.timer);
+    clip = null;
+    paintClip();
+  }
+
+  // Shades the card copied or cut, when its board is on screen.
+  function paintClip() {
+    document.querySelectorAll(".card.clip").forEach(el => el.classList.remove("clip", "cut"));
+    const el = clip && clip.key === shownKey() && [...document.querySelectorAll("#board .card, #parking .card")].find(c => c.dataset.id === clip.id);
+    if (!el) return;
+    el.classList.add("clip");
+    el.classList.toggle("cut", clip.cut);
+  }
+
+  // Where a paste lands on the board on screen: right after the card pointed
+  // at, in the same place — inside the same card, if that one's inside a card
+  // that can hold this one, else on its own. Over the rest of a day it goes
+  // by height: at the top over its heading, at the end over its free time.
+  // Over the parking lot, last there. A card being moved on this board isn't
+  // one to go after. null when it points nowhere.
+  function pasteSpot(list, from, card, moving, at) {
+    if (at.el.closest("#parking")) return { day: null, parentId: null, pos: card.pos, beforeId: null };
+    const col = at.el.closest("#board .col");
+    if (!col) return null;
+    const day = +col.dataset.day, over = at.el.closest(".card");
+    // The card to go before: the first of these whose middle is below y.
+    const next = (els, y) => {
+      const el = els.find(c => { const r = c.getBoundingClientRect(); return c.dataset.id !== (moving && moving.id) && y < r.top + r.height / 2; });
+      return el ? el.dataset.id : null;
+    };
+    const below = el => el.getBoundingClientRect().bottom;
+    if (over && over.matches(".card.inner")) {
+      const block = over.parentElement, parent = list.cards.find(c => c.id === block.dataset.id);
+      if (canHold(from, parent, card)) {
+        const pos = over.dataset.pos, group = [...block.children].filter(c => c.matches(".card.inner") && c.dataset.pos === pos);
+        return { day, parentId: parent.id, pos, beforeId: next(group, below(over)) };
+      }
+    }
+    const top = over && over.closest(".col-body > .card");
+    return { day, parentId: null, pos: card.pos, beforeId: next([...col.querySelectorAll(".col-body > .card")], top ? below(top) : mouse.y) };
+  }
+
+  // Adds a card from elsewhere (a copy, or one cut from another board), with
+  // the cards inside it, to a board at a spot, as a drop there would: into a
+  // matching card in that place, if there is one.
+  function placeCard(list, [card, ...inner], spot) {
+    const parentId = inner.length ? null : spot.parentId;
+    Object.assign(card, { day: spot.day, parentId, pos: parentId ? spot.pos : card.pos });
+    inner.forEach(c => { c.day = spot.day; });
+    list.cards.push(...inner);
+    const into = mergeTarget(list, card, card.day, parentId, card.pos);
+    if (into) absorb(list, into, card);
+    else insertCard(list, card, spot.beforeId);
+  }
+
+  // Ctrl+V: pastes the card copied or cut where the shortcuts point. A cut
+  // card from the board on screen moves the way a drag does; a copy, or one
+  // cut from another board, is added (as your own card, which reloading the
+  // baseline leaves alone). False when there's nothing to paste, or nowhere
+  // to put it.
+  function pasteCard() {
+    const at = clip && !press && !drag && !resize && !isLocked() && pointedAt();
+    if (!at) return false;
+    const from = readList(clip.key), card = from.cards.find(c => c.id === clip.id);
+    if (!card || (clip.cut && clip.key !== "base" && from.closed)) {
+      clearClip();
+      return false;
+    }
+    const key = shownKey(), moving = clip.cut && clip.key === key ? card : null;
+    const spot = pasteSpot(readList(key), from, card, moving, at);
+    if (!spot) return false;
+    const list = listFor(key), group = [card, ...innerCards(from, card)];
+    if (moving) {
+      moveCard(list, card.id, spot.day, spot.beforeId, spot.parentId, spot.pos);
+    } else if (clip.cut) {
+      from.cards = from.cards.filter(c => !group.includes(c));
+      group.forEach(c => { c.base = false; });
+      placeCard(list, group, spot);
+    } else {
+      placeCard(list, copyCards(group, { base: false }), spot);
+    }
+    clearClip();
+    save();
+    renderAll();
+    return true;
   }
 
   // ==========================================================================
@@ -2995,6 +3126,9 @@
   document.addEventListener("pointermove", onPointerMove);
   document.addEventListener("pointerup", onPointerUp);
   document.addEventListener("pointercancel", onPointerCancel);
+  // Copy, cut and paste go by where the mouse is (none once it's left the window).
+  document.addEventListener("pointermove", e => { if (e.pointerType === "mouse") mouse = { x: e.clientX, y: e.clientY }; });
+  document.addEventListener("mouseout", e => { if (!e.relatedTarget) mouse = null; });
   // Once a touch drag has started, the page mustn't scroll under the finger.
   document.addEventListener("touchmove", e => { if (drag || resize) e.preventDefault(); }, { passive: false });
 
@@ -3110,8 +3244,9 @@
   });
 
   // Ctrl+9 toggles developer mode; Esc cancels a drag, closes the top dialog
-  // (asking first if it has unsaved changes) or else Developer Mode; Enter saves
-  // an editor; Ctrl/Cmd+Z undoes (outside text fields).
+  // (asking first if it has unsaved changes), drops a copied or cut card, or
+  // else closes Developer Mode; Enter saves an editor; Ctrl/Cmd+Z undoes and
+  // Ctrl/Cmd+C, X and V copy, cut and paste cards (outside text fields).
   document.addEventListener("keydown", e => {
     if (drag && (e.key === "Control" || e.key === "Meta")) {
       drag.ctrl = true;
@@ -3127,13 +3262,18 @@
       if (drag) endDrag(false);
       else if (resize) endResize(false);
       else if (topOverlay()) requestDismiss(topOverlay());
+      else if (clip) clearClip();
       else if (devModeOn) toggleDevMode();
       return;
     }
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
-    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "z" && !typing && !topOverlay()) {
+    const shortcut = (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && !typing && !topOverlay() ? e.key.toLowerCase() : "";
+    if (shortcut === "z") {
       e.preventDefault();
       undo();
+    } else if (shortcut === "c" || shortcut === "x" || shortcut === "v") {
+      // Only when it's about a card; otherwise the browser copies and pastes as usual.
+      if (shortcut === "v" ? pasteCard() : clipCard(shortcut === "x")) e.preventDefault();
     } else if (e.key === "Enter" && typing && e.target.tagName !== "TEXTAREA") {
       const top = topOverlay();
       if (top === "cardOverlay") { e.preventDefault(); saveCard(); }
