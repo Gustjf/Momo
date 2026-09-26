@@ -628,6 +628,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.687", date: "2026-09-26", changes: [
+      "A Ctrl-drag puts the card right after the same card on every day (drop Commute under Sleep and it goes under Sleep everywhere), and brings it along even where it sits inside another card."
+    ] },
     { version: "1.686", date: "2026-09-26", changes: [
       "Hold Ctrl while dragging a card (or keep holding it a moment longer on a phone) to move the same card on every day at once: each stays on its day and goes to the same spot there."
     ] },
@@ -1331,8 +1334,8 @@
   // the card would push it past 24 hours.
   // Holding Ctrl (or ⌘) while dragging, or holding a touch still a little
   // longer before moving, makes it a group drag: the same card on every other
-  // day comes along, each staying on its own day and going to the same spot
-  // there (see groupMoves).
+  // day comes along, each staying on its own day and going right after the
+  // same card there (see groupMoves).
   function onBoardPointerDown(e) {
     if (press || drag || resize || e.button !== 0 || isLocked()) return;
     const cardEl = e.target.closest(".card");
@@ -1426,19 +1429,20 @@
   // The height of an hour on the board, in pixels.
   const hourPx = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hour")) || 22;
 
-  // The same card on the board's other days, in the same kind of place: on its
-  // own, or inside a card like the one it's in. One a day; none for a parked card.
+  // The same card on each of the board's other days (none for a parked card).
+  // Where a day has more than one, it's the one in the same kind of place: on
+  // its own, or inside a card like the one it's in, at the same position.
   function twinsOf(list, card) {
     if (!card || card.day === null) return [];
     const holder = c => c.parentId && list.cards.find(p => p.id === c.parentId);
-    const parent = holder(card), days = new Set([card.day]);
-    return list.cards.filter(c => {
-      if (c.day === null || days.has(c.day) || !sameKind(c, card)) return false;
-      const p = holder(c);
-      if (parent ? !p || !sameKind(p, parent) : p) return false;
-      days.add(c.day);
-      return true;
+    const parent = holder(card);
+    const fit = c => { const p = holder(c); return parent ? (p && sameKind(p, parent) ? 2 + (c.pos === card.pos) : 0) : p ? 0 : 2; };
+    const best = new Map();
+    list.cards.forEach(c => {
+      if (c.day === null || c.day === card.day || !sameKind(c, card)) return;
+      if (!best.has(c.day) || fit(c) > fit(best.get(c.day))) best.set(c.day, c);
     });
+    return [...best.values()];
   }
 
   // Turns a group drag on or off to match Ctrl and the touch hold; true if it changed.
@@ -1512,10 +1516,12 @@
 
   // Where each card in a group drag goes: every one stays on its own day, at
   // the spot there that matches the one picked (spot, on spot.day). That's
-  // inside that day's card like the one picked, if there is one; and before
-  // that day's match for the nearest card after the spot, else after its match
-  // for the nearest card before it, else as far down as the spot is. A card with
-  // nothing there to go inside stays where it is.
+  // inside that day's card like the one picked, if there is one, and right
+  // after that day's card like the one just above the spot (Commute dropped
+  // under Sleep goes under Sleep on every day). A day without that card goes
+  // by the nearest one above it that the day has, else the card goes to the
+  // top. A card with nothing there to go inside stays where it is. Each move
+  // notes the title of the card it goes after (after), for the toast.
   function groupMoves(list, ids, spot) {
     const skip = new Set(ids), byId = id => list.cards.find(c => c.id === id);
     const parent = spot.parentId ? byId(spot.parentId) : null;
@@ -1525,14 +1531,14 @@
     return ids.map(byId).filter(c => c && c.day !== null).map(c => {
       const p = !parent ? null : c.day === spot.day ? parent : list.cards.find(x => x.day === c.day && !x.parentId && !skip.has(x.id) && sameKind(x, parent));
       if (parent && !canHold(list, p, c)) return { id: c.id, day: c.day, stay: true };
-      let beforeId = spot.beforeId;
+      let after = ref[k - 1] || null, beforeId = spot.beforeId;
       if (c.day !== spot.day) {
-        const mine = at(c.day, p), match = r => mine.find(m => sameKind(m, r));
-        const next = ref.slice(k).map(match).find(Boolean), prev = ref.slice(0, k).reverse().map(match).find(Boolean);
-        const before = next || (prev ? mine[mine.indexOf(prev) + 1] : mine[k]);
+        const mine = at(c.day, p);
+        after = ref.slice(0, k).reverse().map(r => mine.find(m => sameKind(m, r))).find(Boolean) || null;
+        const before = after ? mine[mine.indexOf(after) + 1] : mine[0];
         beforeId = before ? before.id : null;
       }
-      return { id: c.id, day: c.day, parentId: p ? p.id : null, pos: spot.pos, beforeId };
+      return { id: c.id, day: c.day, parentId: p ? p.id : null, pos: spot.pos, beforeId, after: after && after.title };
     });
   }
 
@@ -1689,11 +1695,18 @@
     const moves = groupMoves(list, [id, ...twins], spot), title = card.title;
     const days = ms => ms.map(m => m.day).sort((a, b) => a - b).map(d => DAY_NAMES[d]).join(", ");
     const went = moves.filter(m => !m.stay), stayed = moves.filter(m => m.stay);
+    if (!went.length) return "";
     went.forEach(m => moveCard(list, m.id, m.day, m.beforeId, m.parentId, m.pos));
-    return [
-      parent ? `Put ${title} ${POSITION_TEXT[spot.pos]} ${parent.title} on ${days(went)}` : `Moved ${title} on ${days(went)}`,
-      stayed.length ? `left as is on ${days(stayed)}` : ""
-    ].filter(Boolean).join(" · ");
+    // "Moved Commute after Sleep on Mon, Tue · to the top on Sat": the days by what they went after.
+    const byAfter = new Map();
+    went.forEach(m => {
+      const key = (m.after || "").toLowerCase();
+      if (!byAfter.has(key)) byAfter.set(key, { after: m.after, moves: [] });
+      byAfter.get(key).moves.push(m);
+    });
+    return (parent ? [`Put ${title} ${POSITION_TEXT[spot.pos]} ${parent.title} on ${days(went)}`]
+      : [...byAfter.values()].map((g, i) => `${i ? "" : `Moved ${title} `}${g.after ? `after ${g.after}` : "to the top"} on ${days(g.moves)}`))
+      .concat(stayed.length ? `left as is on ${days(stayed)}` : []).join(" · ");
   }
 
   // Resizing: dragging a card's bottom edge changes its hours in 15-minute steps.
