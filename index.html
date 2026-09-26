@@ -582,6 +582,9 @@
   // Newest first; APP_VERSION is the top entry. Version X.YYY, bump one tier per
   // change: +0.001 bug fix, +0.010 tiny tweak, +0.100 small feature, +1 large feature.
   const CHANGELOG = [
+    { version: "1.283", date: "2026-09-26", changes: [
+      "Esc closes Developer Mode too, and closing a window that has unsaved changes asks before discarding them."
+    ] },
     { version: "1.273", date: "2026-09-26", changes: [
       "The baseline shows how much of the week is fixed as a percentage instead of hours."
     ] },
@@ -1453,6 +1456,28 @@
     if (id === "goalOverlay") editingGoal = null;
   }
 
+  // What an editor holds, to tell whether closing it would lose changes.
+  const cardFormState = () => JSON.stringify([$("cardTitle").value, $("cardHours").value, $("cardGoal").value, [...editing.days].sort(), editing.color]);
+  const goalFormState = () => JSON.stringify(["goalName", "goalTarget", "goalDone", "goalDueMonth", "goalDueDay", "goalDueYear"].map(id => $(id).value).concat(editingGoal.color));
+  function hasPendingInput(id) {
+    if (id === "cardOverlay") return !!editing && cardFormState() !== editing.snapshot;
+    if (id === "goalOverlay") return !!editingGoal && goalFormState() !== editingGoal.snapshot;
+    if (id === "closeOutOverlay") return !!closing && closing.rows.some(r => r.done !== r.hours);
+    if (id === "bugReportOverlay") return $("bugReportText").value.trim() !== "";
+    return false;
+  }
+  const DISCARD_ASK = {
+    cardOverlay: "Discard your changes to this card?",
+    goalOverlay: "Discard your changes to this goal?",
+    closeOutOverlay: "Close out later? The hours you changed here won't be kept.",
+    bugReportOverlay: "Discard this bug report? It hasn't been submitted."
+  };
+  // Esc, the × button and a backdrop click ask first if that would lose something; Cancel doesn't.
+  function requestDismiss(id) {
+    if (hasPendingInput(id) && !confirm(DISCARD_ASK[id])) return;
+    dismissOverlay(id);
+  }
+
   // Titles used before, for the title field's suggestions.
   function titleSuggestions() {
     const titles = new Map([[FREE_TIME.toLowerCase(), FREE_TIME]]);
@@ -1486,6 +1511,7 @@
     $("titleSuggestions").innerHTML = titleSuggestions().map(t => `<option value="${esc(t)}"></option>`).join("");
     renderDayPills();
     renderSwatches("cardColors", editing.color);
+    editing.snapshot = cardFormState();
     openOverlay("cardOverlay");
     $("cardTitle").focus();
   }
@@ -1708,6 +1734,7 @@
     setDue(g ? g.due : "");
     $("goalDeleteBtn").hidden = !g;
     renderSwatches("goalColors", editingGoal.color);
+    editingGoal.snapshot = goalFormState();
     openOverlay("goalOverlay");
     $("goalName").focus();
   }
@@ -2504,7 +2531,7 @@
   $("cardSaveBtn").addEventListener("click", saveCard);
   $("cardDeleteBtn").addEventListener("click", deleteCard);
   $("cardCancelBtn").addEventListener("click", () => dismissOverlay("cardOverlay"));
-  $("cardClose").addEventListener("click", () => dismissOverlay("cardOverlay"));
+  $("cardClose").addEventListener("click", () => requestDismiss("cardOverlay"));
   $("cardDays").addEventListener("click", onDayPill);
   $("cardDailyBtn").addEventListener("click", () => applyPreset(DAYS));
   $("cardWeekdaysBtn").addEventListener("click", () => applyPreset(WEEKDAYS));
@@ -2521,7 +2548,7 @@
   $("goalSaveBtn").addEventListener("click", saveGoal);
   $("goalDeleteBtn").addEventListener("click", deleteGoal);
   $("goalCancelBtn").addEventListener("click", () => dismissOverlay("goalOverlay"));
-  $("goalClose").addEventListener("click", () => dismissOverlay("goalOverlay"));
+  $("goalClose").addEventListener("click", () => requestDismiss("goalOverlay"));
   $("goalColors").addEventListener("click", e => {
     const s = e.target.closest(".swatch");
     if (!s || !editingGoal) return;
@@ -2545,7 +2572,7 @@
   ["cardOverlay", "goalOverlay", "bugReportOverlay"].forEach(id => {
     let downOnBackdrop = false;
     $(id).addEventListener("pointerdown", e => { downOnBackdrop = e.target.id === id; });
-    $(id).addEventListener("click", e => { if (downOnBackdrop && e.target.id === id) dismissOverlay(id); });
+    $(id).addEventListener("click", e => { if (downOnBackdrop && e.target.id === id) requestDismiss(id); });
   });
 
   $("exportBtn").addEventListener("click", exportBackup);
@@ -2569,7 +2596,7 @@
   $("devPlusDayBtn").addEventListener("click", () => timeTravel(1));
   $("devPlusWeekBtn").addEventListener("click", () => timeTravel(7));
   $("reportBugLink").addEventListener("click", e => { e.preventDefault(); openBugReportModal(); });
-  $("bugReportClose").addEventListener("click", () => dismissOverlay("bugReportOverlay"));
+  $("bugReportClose").addEventListener("click", () => requestDismiss("bugReportOverlay"));
   $("bugReportSubmitBtn").addEventListener("click", submitBugReport);
   $("devCopyBugReportsBtn").addEventListener("click", async () => {
     if (!bugReports.length) return alert("No bug reports logged yet.");
@@ -2586,8 +2613,9 @@
     $("devBugReportCount").textContent = 0;
   });
 
-  // Ctrl+9 toggles developer mode; Esc cancels a drag or closes the top dialog;
-  // Enter saves an editor; Ctrl/Cmd+Z undoes (outside text fields).
+  // Ctrl+9 toggles developer mode; Esc cancels a drag, closes the top dialog
+  // (asking first if it has unsaved changes) or else Developer Mode; Enter saves
+  // an editor; Ctrl/Cmd+Z undoes (outside text fields).
   document.addEventListener("keydown", e => {
     if (e.ctrlKey && (e.key === "9" || e.code === "Digit9")) {
       e.preventDefault();
@@ -2597,7 +2625,8 @@
     if (e.key === "Escape") {
       if (drag) endDrag(false);
       else if (resize) endResize(false);
-      else if (topOverlay()) dismissOverlay(topOverlay());
+      else if (topOverlay()) requestDismiss(topOverlay());
+      else if (devModeOn) toggleDevMode();
       return;
     }
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
